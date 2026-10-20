@@ -6,7 +6,8 @@
 *.7z
 *.rar
 
-/generated/
+/generated/*
+!/generated/hctp/
 /tools/
 /build/
 
