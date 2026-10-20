@@ -27,6 +27,10 @@ EM_JS(void, ps2web_fetch, (const char *url, double offset, int size, void *out, 
         Atomics.store(HEAP32, state >> 2, value);
         Atomics.notify(HEAP32, state >> 2);
     };
+    if (Module.fetchDiscChunk) {
+        Module.fetchDiscChunk(target, offset, size, out, finish);
+        return;
+    }
     fetch(target, {headers: {Range: 'bytes=' + offset + '-' + (offset + size - 1)}})
         .then((response) => {
             if (response.status !== 206 && response.status !== 200) throw new Error('status ' + response.status);
@@ -186,6 +190,10 @@ void fetch_slot(Slot *s) {
                     Atomics.store(HEAP32, state >> 2, value);
                     Atomics.notify(HEAP32, state >> 2);
                 };
+                if (Module.fetchDiscChunk) {
+                    Module.fetchDiscChunk(url, offset, size, out, finish);
+                    return;
+                }
                 fetch(url, {headers: {Range: 'bytes=' + offset + '-' + (offset + size - 1)}})
                     .then((res) => {
                         if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status);

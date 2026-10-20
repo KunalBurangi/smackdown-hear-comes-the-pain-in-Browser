@@ -17,10 +17,19 @@ if '--record' in sys.argv:
     RECORD = os.path.abspath(sys.argv[at + 1])
     del sys.argv[at:at + 2]
 BUILD = os.path.abspath(sys.argv[1])
-DISC = os.path.abspath(sys.argv[2])
-DISC_FD = os.open(DISC, os.O_RDONLY) if os.path.isfile(DISC) else None
-PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 8620
-TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream'}
+DISC = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 and os.path.exists(sys.argv[2]) and not sys.argv[2].isdigit() else None
+DISC_FD = os.open(DISC, os.O_RDONLY) if DISC and os.path.isfile(DISC) else None
+PORT = int(sys.argv[3]) if len(sys.argv) > 3 else (int(sys.argv[2]) if len(sys.argv) > 2 and sys.argv[2].isdigit() else 8620)
+TYPES = {
+    '.html': 'text/html',
+    '.js': 'text/javascript',
+    '.wasm': 'application/wasm',
+    '.data': 'application/octet-stream',
+    '.json': 'application/json',
+    '.bin': 'application/octet-stream',
+    '.pac': 'application/octet-stream',
+    '.afs': 'application/octet-stream',
+}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -39,9 +48,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         if path in ('/', '/index.html'):
             path = '/ps2web.html'
         if path == '/disc.iso':
-            return DISC
+            return DISC if (DISC and os.path.isfile(DISC)) else None
         name = os.path.normpath(path.lstrip('/'))
-        if name.startswith('..') or os.sep in name:
+        if name.startswith('..') or name.startswith('/'):
             return None
         full = os.path.join(BUILD, name)
         return full if os.path.isfile(full) else None
@@ -124,8 +133,9 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, fmt, *args):
-        pass
+        if '404' in (args[1] if len(args) > 1 else ''):
+            print('404:', self.path, flush=True)
 
 
-print('serving %s and %s on http://127.0.0.1:%d/' % (BUILD, DISC, PORT))
+print('serving %s and %s on http://127.0.0.1:%d/' % (BUILD, DISC or '(virtual disc)', PORT))
 http.server.ThreadingHTTPServer(('127.0.0.1', PORT), Handler).serve_forever()

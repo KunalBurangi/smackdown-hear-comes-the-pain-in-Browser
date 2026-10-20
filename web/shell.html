@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<title>ps2-web-recomp</title>
+<title>WWE SmackDown! Here Comes the Pain</title>
+<script src="coi-serviceworker.js"></script>
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #0b0b0d; color: #d8d8dc; font: 13px system-ui, sans-serif; }
@@ -618,18 +619,90 @@ var Module = {
     for (const [key, value] of params) if (key.startsWith('PS2_')) Module.ENV[key] = value;
     Module.ENV.PS2_SCALE = scale;
     Module.addRunDependency('disc');
-    Promise.all([fetch(Module.discUrl, { method: 'HEAD' }), chooseGpu().catch((e) => 'GPU check failed: ' + e)]).then(([r, gpu]) => {
-      Module.discSize = Number(r.headers.get('content-length')) || 0;
+    Promise.all([
+      fetch('disc/sectors.json').then((r) => r.ok ? r.json() : null).catch(() => null),
+      fetch('disc/meta.bin').then((r) => r.ok ? r.arrayBuffer() : null).catch(() => null),
+      fetch(Module.discUrl, { method: 'HEAD' }).catch(() => null),
+      chooseGpu().catch((e) => 'GPU check failed: ' + e)
+    ]).then(([sectors, meta, r, gpu]) => {
+      if (sectors && meta) {
+        Module.discIndex = sectors;
+        Module.discMeta = new Uint8Array(meta);
+        Module.discSize = 4525228032;
+        statusEl.textContent = 'Game assets loaded (virtual disc), ' + gpu;
+      } else {
+        Module.discSize = r ? (Number(r.headers.get('content-length')) || 0) : 0;
+        statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
+      }
       Module.gpuInfo = gpu;
       if (Module.gpuHelp && !missing.length) {
         const help = document.getElementById('help');
         help.textContent = Module.gpuHelp;
         help.hidden = false;
       }
-      statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
       Module.removeRunDependency('disc');
     });
   }],
+  fetchDiscChunk: (url, offset, size, out, finish) => {
+    if (Module.discIndex) {
+      const heap = (typeof HEAPU8 !== 'undefined' ? HEAPU8 : Module.HEAPU8);
+      heap.fill(0, out, out + size);
+      const end = offset + size;
+      const metaSize = Module.discMeta ? Module.discMeta.length : 0;
+      if (offset < metaSize) {
+        const metaEnd = Math.min(end, metaSize);
+        heap.set(Module.discMeta.subarray(offset, metaEnd), out);
+      }
+      const promises = [];
+      for (const s of Module.discIndex) {
+        if (s.start < end && s.end > offset) {
+          if (!s.available) continue;
+          const overlapStart = Math.max(offset, s.start);
+          const overlapEnd = Math.min(end, s.end);
+          const relStart = overlapStart - s.start;
+          const relEnd = overlapEnd - s.start;
+          const dstOffset = overlapStart - offset;
+          promises.push(
+            fetch('disc/' + s.path, { headers: { Range: 'bytes=' + relStart + '-' + (relEnd - 1) } })
+              .then((res) => {
+                if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status + ' for ' + s.path);
+                return res.arrayBuffer().then((buf) => {
+                  let bytes = new Uint8Array(buf);
+                  if (res.status === 200) bytes = bytes.subarray(relStart, relEnd);
+                  heap.set(bytes.subarray(0, Math.min(bytes.length, relEnd - relStart)), out + dstOffset);
+                });
+              })
+          );
+        }
+      }
+      if (promises.length === 0) {
+        finish(3);
+        return;
+      }
+      Promise.all(promises)
+        .then(() => finish(3))
+        .catch((e) => {
+          console.warn('disc read failed in chunk ' + offset, e);
+          finish(4);
+        });
+      return;
+    }
+    const heap = (typeof HEAPU8 !== 'undefined' ? HEAPU8 : Module.HEAPU8);
+    fetch(url, { headers: { Range: 'bytes=' + offset + '-' + (offset + size - 1) } })
+      .then((res) => {
+        if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status);
+        return res.arrayBuffer().then((buf) => {
+          let bytes = new Uint8Array(buf);
+          if (res.status === 200) bytes = bytes.subarray(offset, offset + size);
+          heap.set(bytes.subarray(0, Math.min(bytes.length, size)), out);
+          finish(3);
+        });
+      })
+      .catch((e) => {
+        console.warn('disc read failed', e);
+        finish(4);
+      });
+  },
   audioQueuedMs: () => Module._ps2web_audio_queued_ms(),
   ps2CardSaved: () => storeCard(),
   onFrame: () => {
