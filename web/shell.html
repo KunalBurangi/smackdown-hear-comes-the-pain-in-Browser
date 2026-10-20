@@ -647,6 +647,34 @@ var Module = {
       Module.removeRunDependency('disc');
     });
   }],
+  discFileCache: new Map(),
+  discFilePromises: new Map(),
+  loadDiscFile: (path) => {
+    if (!Module.discFileCache) Module.discFileCache = new Map();
+    if (!Module.discFilePromises) Module.discFilePromises = new Map();
+    if (Module.discFileCache.has(path)) {
+      return Promise.resolve(Module.discFileCache.get(path));
+    }
+    if (Module.discFilePromises.has(path)) {
+      return Module.discFilePromises.get(path);
+    }
+    const p = fetch('disc/' + path)
+      .then((res) => {
+        if (!res.ok) throw new Error('status ' + res.status + ' for ' + path);
+        return res.arrayBuffer().then((buf) => {
+          const bytes = new Uint8Array(buf);
+          Module.discFileCache.set(path, bytes);
+          Module.discFilePromises.delete(path);
+          return bytes;
+        });
+      })
+      .catch((e) => {
+        Module.discFilePromises.delete(path);
+        throw e;
+      });
+    Module.discFilePromises.set(path, p);
+    return p;
+  },
   fetchDiscChunk: (url, offset, size, out, finish) => {
     if (Module.discIndex) {
       const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
@@ -669,17 +697,16 @@ var Module = {
           const fileSize = s.file_size || s.size;
           if (relStart >= fileSize) continue;
           const actualRelEnd = Math.min(relEnd, fileSize);
-          promises.push(
-            fetch('disc/' + s.path, { headers: { Range: 'bytes=' + relStart + '-' + (actualRelEnd - 1) } })
-              .then((res) => {
-                if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status + ' for ' + s.path);
-                return res.arrayBuffer().then((buf) => {
-                  let bytes = new Uint8Array(buf);
-                  if (res.status === 200) bytes = bytes.subarray(relStart, actualRelEnd);
-                  getHeap().set(bytes.subarray(0, Math.min(bytes.length, actualRelEnd - relStart)), out + dstOffset);
-                });
+          if (Module.discFileCache && Module.discFileCache.has(s.path)) {
+            const bytes = Module.discFileCache.get(s.path);
+            getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
+          } else {
+            promises.push(
+              Module.loadDiscFile(s.path).then((bytes) => {
+                getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
               })
-          );
+            );
+          }
         }
       }
       if (promises.length === 0) {

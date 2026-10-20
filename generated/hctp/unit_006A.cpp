@@ -4581,11 +4581,9 @@ L_002AB408:
     c.r[2].d[0] = ld16((c.r[2].w[0] + 4u));
     c.r[2].d[0] = c.r[2].d[0] & 2048ull;
     c.budget -= 6;
-    { const bool t = c.r[2].d[0] == 0ull; c.r[2].d[0] = 0ull + 0ull;  if (t) { goto L_002AB434; } }
-    c.budget -= 2;
     { const bool t = 0ull == 0ull; set32(c.r[2], 0u + 1u);  if (t) { goto L_002AB434; } }
 L_002AB430:
-    c.r[2].d[0] = 0ull + 0ull;
+    set32(c.r[2], 0u + 1u);
     c.budget -= 1;
 L_002AB434:
     c.r[31].d[0] = ld64((c.r[29].w[0] + 32u));
