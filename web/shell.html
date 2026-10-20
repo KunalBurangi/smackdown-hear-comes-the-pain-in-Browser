@@ -620,8 +620,8 @@ var Module = {
     Module.ENV.PS2_SCALE = scale;
     Module.addRunDependency('disc');
     Promise.all([
-      fetch('disc/sectors.json').then((r) => r.ok ? r.json() : null).catch(() => null),
-      fetch('disc/meta.bin').then((r) => r.ok ? r.arrayBuffer() : null).catch(() => null),
+      params.has('iso') ? null : fetch('disc/sectors.json').then((r) => r.ok ? r.json() : null).catch(() => null),
+      params.has('iso') ? null : fetch('disc/meta.bin').then((r) => r.ok ? r.arrayBuffer() : null).catch(() => null),
       fetch(Module.discUrl, { method: 'HEAD' }).catch(() => null),
       chooseGpu().catch((e) => 'GPU check failed: ' + e)
     ]).then(([sectors, meta, r, gpu]) => {
@@ -644,14 +644,20 @@ var Module = {
     });
   }],
   fetchDiscChunk: (url, offset, size, out, finish) => {
+    const rawFinish = finish;
+    finish = (val) => {
+      console.log('[disc] chunk FINISHED offset=' + offset + ' val=' + val);
+      rawFinish(val);
+    };
     if (Module.discIndex) {
-      const heap = (typeof HEAPU8 !== 'undefined' ? HEAPU8 : Module.HEAPU8);
-      heap.fill(0, out, out + size);
+      console.log('[disc] chunk request offset=' + offset + ' (' + (offset / 1048576).toFixed(1) + ' MB)');
+      const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
+      getHeap().fill(0, out, out + size);
       const end = offset + size;
       const metaSize = Module.discMeta ? Module.discMeta.length : 0;
       if (offset < metaSize) {
         const metaEnd = Math.min(end, metaSize);
-        heap.set(Module.discMeta.subarray(offset, metaEnd), out);
+        getHeap().set(Module.discMeta.subarray(offset, metaEnd), out);
       }
       const promises = [];
       for (const s of Module.discIndex) {
@@ -662,14 +668,17 @@ var Module = {
           const relStart = overlapStart - s.start;
           const relEnd = overlapEnd - s.start;
           const dstOffset = overlapStart - offset;
+          const fileSize = s.file_size || s.size;
+          if (relStart >= fileSize) continue;
+          const actualRelEnd = Math.min(relEnd, fileSize);
           promises.push(
-            fetch('disc/' + s.path, { headers: { Range: 'bytes=' + relStart + '-' + (relEnd - 1) } })
+            fetch('disc/' + s.path, { headers: { Range: 'bytes=' + relStart + '-' + (actualRelEnd - 1) } })
               .then((res) => {
                 if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status + ' for ' + s.path);
                 return res.arrayBuffer().then((buf) => {
                   let bytes = new Uint8Array(buf);
-                  if (res.status === 200) bytes = bytes.subarray(relStart, relEnd);
-                  heap.set(bytes.subarray(0, Math.min(bytes.length, relEnd - relStart)), out + dstOffset);
+                  if (res.status === 200) bytes = bytes.subarray(relStart, actualRelEnd);
+                  getHeap().set(bytes.subarray(0, Math.min(bytes.length, actualRelEnd - relStart)), out + dstOffset);
                 });
               })
           );
@@ -682,19 +691,19 @@ var Module = {
       Promise.all(promises)
         .then(() => finish(3))
         .catch((e) => {
-          console.warn('disc read failed in chunk ' + offset, e);
+          console.error('[disc] read failed in chunk ' + offset, e);
           finish(4);
         });
       return;
     }
-    const heap = (typeof HEAPU8 !== 'undefined' ? HEAPU8 : Module.HEAPU8);
+    const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
     fetch(url, { headers: { Range: 'bytes=' + offset + '-' + (offset + size - 1) } })
       .then((res) => {
         if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status);
         return res.arrayBuffer().then((buf) => {
           let bytes = new Uint8Array(buf);
           if (res.status === 200) bytes = bytes.subarray(offset, offset + size);
-          heap.set(bytes.subarray(0, Math.min(bytes.length, size)), out);
+          getHeap().set(bytes.subarray(0, Math.min(bytes.length, size)), out);
           finish(3);
         });
       })

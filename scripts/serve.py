@@ -133,8 +133,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, fmt, *args):
-        if '404' in (args[1] if len(args) > 1 else ''):
-            print('404:', self.path, flush=True)
+        print(self.path, self.headers.get('Range', ''), flush=True)
 
 
 print('serving %s and %s on http://127.0.0.1:%d/' % (BUILD, DISC or '(virtual disc)', PORT))

@@ -24,8 +24,9 @@ EM_JS_DEPS(ps2web, "$stringToNewUTF8,$UTF8ToString");
 EM_JS(void, ps2web_fetch, (const char *url, double offset, int size, void *out, std::atomic<std::uint32_t> *state), {
     const target = UTF8ToString(url);
     const finish = (value) => {
-        Atomics.store(HEAP32, state >> 2, value);
-        Atomics.notify(HEAP32, state >> 2);
+        const heap32 = (typeof HEAP32 !== 'undefined' && HEAP32.buffer.byteLength > 0) ? HEAP32 : Module.HEAP32;
+        Atomics.store(heap32, state >> 2, value);
+        Atomics.notify(heap32, state >> 2);
     };
     if (Module.fetchDiscChunk) {
         Module.fetchDiscChunk(target, offset, size, out, finish);
@@ -187,8 +188,9 @@ void fetch_slot(Slot *s) {
                 const out = $3;
                 const state = $4;
                 const finish = (value) => {
-                    Atomics.store(HEAP32, state >> 2, value);
-                    Atomics.notify(HEAP32, state >> 2);
+                    const heap32 = (typeof HEAP32 !== 'undefined' && HEAP32.buffer.byteLength > 0) ? HEAP32 : Module.HEAP32;
+                    Atomics.store(heap32, state >> 2, value);
+                    Atomics.notify(heap32, state >> 2);
                 };
                 if (Module.fetchDiscChunk) {
                     Module.fetchDiscChunk(url, offset, size, out, finish);
@@ -200,7 +202,8 @@ void fetch_slot(Slot *s) {
                         return res.arrayBuffer().then((buf) => {
                             let bytes = new Uint8Array(buf);
                             if (res.status === 200) bytes = bytes.subarray(offset, offset + size);
-                            HEAPU8.set(bytes.subarray(0, Math.min(bytes.length, size)), out);
+                            const heap8 = (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0) ? HEAPU8 : Module.HEAPU8;
+                            heap8.set(bytes.subarray(0, Math.min(bytes.length, size)), out);
                             finish(3);
                         });
                     })
