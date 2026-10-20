@@ -51,7 +51,8 @@ int open(const std::string &path, std::uint32_t flags) {
         if (!entry || entry->directory) return kNoEntry;
         f.sector = entry->sector;
         f.size = entry->size;
-        disc::ready(f.sector, std::min<std::uint32_t>((f.size + disc::kSector - 1) / disc::kSector, 2048));
+        const std::uint32_t sectors = (f.size + disc::kSector - 1) / disc::kSector;
+        disc::ready(f.sector, std::min<std::uint32_t>(sectors, 32768));
     } else if (device == "rom") {
         std::string name = path.substr(path.find(':') + 1);
         if (name == "ROMVER") {
@@ -89,6 +90,8 @@ int read(int fd, std::uint8_t *out, std::uint32_t size) {
         const std::uint64_t start = f.position, end = f.position + n;
         const std::uint32_t first = static_cast<std::uint32_t>(start / disc::kSector);
         const std::uint32_t last = static_cast<std::uint32_t>((end + disc::kSector - 1) / disc::kSector);
+        const std::uint32_t remaining = (f.size - start + disc::kSector - 1) / disc::kSector;
+        disc::ready(f.sector + first, std::min<std::uint32_t>(remaining, 32768));
         const std::size_t offset_in_sector = static_cast<std::size_t>(start % disc::kSector);
         if (offset_in_sector == 0 && n == (last - first) * disc::kSector) {
             disc::read(f.sector + first, last - first, out);

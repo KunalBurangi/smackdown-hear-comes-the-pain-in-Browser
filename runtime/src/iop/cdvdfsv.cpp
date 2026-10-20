@@ -163,7 +163,8 @@ void install_cdvdfsv() {
         if (entry) {
             set_ee32(args, entry->sector);
             set_ee32(args + 4, entry->size);
-            if (!entry->directory) disc::ready(entry->sector, std::min<std::uint32_t>((entry->size + disc::kSector - 1) / disc::kSector, 2048));
+            const std::uint32_t sectors = (entry->size + disc::kSector - 1) / disc::kSector;
+            if (!entry->directory) disc::ready(entry->sector, std::min<std::uint32_t>(sectors, 32768));
         }
         std::fprintf(stderr, "[cdvdfsv] search %s -> %s\n", path.c_str(), entry ? "found" : "missing");
         set_ee32(ret, entry ? 1u : 0u);
