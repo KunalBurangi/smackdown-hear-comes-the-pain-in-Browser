@@ -1,4 +1,5 @@
 #include "ps2/disc.hpp"
+#include "ps2/memory.hpp"
 #include "ps2/system.hpp"
 
 #include <emscripten.h>
@@ -128,9 +129,9 @@ EM_JS(void, ps2web_blit, (const std::uint32_t *rgba, int width, int height), {
 
 namespace {
 
-constexpr std::size_t kChunk = 256u << 10;
-constexpr std::uint32_t kSlots = 256;
-constexpr std::uint64_t kReadAhead = 16;
+constexpr std::size_t kChunk = 1024u << 10;
+constexpr std::uint32_t kSlots = 512;
+constexpr std::uint64_t kReadAhead = 12;
 constexpr std::uint32_t kAudioFrames = 1u << 14;
 
 enum : std::uint32_t { kEmpty, kWanted, kLoading, kReady, kFailed };
@@ -155,10 +156,53 @@ std::uint64_t g_disc_size = 0, g_use_clock = 0, g_last_chunk = ~0ull, g_run = 0;
 char *g_disc_url = nullptr;
 char *g_state_url = nullptr;
 
+struct StreamTracker {
+    std::uint64_t last_chunk = ~0ull;
+    std::uint64_t run = 0;
+};
+StreamTracker g_streams[8];
+
 Slot *find_slot(std::uint64_t index) {
     for (Slot &s : g_slots)
         if (s.state.load(std::memory_order_acquire) != kEmpty && s.index == index) return &s;
     return nullptr;
+}
+
+void fetch_slot(Slot *s) {
+    if (!s) return;
+    std::uint32_t expected = kWanted;
+    if (s->state.compare_exchange_strong(expected, kLoading, std::memory_order_acq_rel)) {
+        emscripten_futex_wake(&s->state, 1);
+        if (emscripten_is_main_runtime_thread()) {
+            ps2web_fetch(g_disc_url, static_cast<double>(s->index * kChunk), static_cast<int>(s->size), s->data, &s->state);
+        } else {
+            MAIN_THREAD_ASYNC_EM_ASM({
+                const url = UTF8ToString($0);
+                const offset = $1;
+                const size = $2;
+                const out = $3;
+                const state = $4;
+                const finish = (value) => {
+                    Atomics.store(HEAP32, state >> 2, value);
+                    Atomics.notify(HEAP32, state >> 2);
+                };
+                fetch(url, {headers: {Range: 'bytes=' + offset + '-' + (offset + size - 1)}})
+                    .then((res) => {
+                        if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status);
+                        return res.arrayBuffer().then((buf) => {
+                            let bytes = new Uint8Array(buf);
+                            if (res.status === 200) bytes = bytes.subarray(offset, offset + size);
+                            HEAPU8.set(bytes.subarray(0, Math.min(bytes.length, size)), out);
+                            finish(3);
+                        });
+                    })
+                    .catch((e) => {
+                        console.warn('disc read failed', e);
+                        finish(4);
+                    });
+            }, g_disc_url, static_cast<double>(s->index * kChunk), static_cast<int>(s->size), s->data, &s->state);
+        }
+    }
 }
 
 Slot *want(std::uint64_t index) {
@@ -179,7 +223,7 @@ Slot *want(std::uint64_t index) {
     victim->size = static_cast<std::uint32_t>(std::min<std::uint64_t>(kChunk, g_disc_size - index * kChunk));
     victim->used = ++g_use_clock;
     victim->state.store(kWanted, std::memory_order_release);
-    ps2::wake_render_thread();
+    fetch_slot(victim);
     return victim;
 }
 
@@ -190,23 +234,45 @@ void advance(std::uint64_t index) {
 }
 
 void read_ahead(std::uint64_t index) {
-    for (std::uint64_t k = 1; k <= std::min(g_run * 2, kReadAhead); ++k) want(index + k);
+    StreamTracker *match = nullptr;
+    StreamTracker *empty = nullptr;
+    for (StreamTracker &st : g_streams) {
+        if (st.last_chunk != ~0ull) {
+            if (index >= st.last_chunk && index <= st.last_chunk + 8) {
+                match = &st;
+                break;
+            }
+        } else if (!empty) {
+            empty = &st;
+        }
+    }
+    if (!match) {
+        match = empty ? empty : &g_streams[0];
+        match->last_chunk = index;
+        match->run = 1;
+    } else {
+        match->run = (index == match->last_chunk + 1) ? match->run + 1 : 1;
+        match->last_chunk = index;
+    }
+    const std::uint64_t count = std::min<std::uint64_t>(std::max<std::uint64_t>(4, match->run * 2), kReadAhead);
+    for (std::uint64_t k = 1; k <= count; ++k) want(index + k);
 }
 
 const Slot *chunk(std::uint64_t index) {
     Slot *s = want(index);
-    advance(index);
-    read_ahead(std::max(index, g_last_chunk));
-    for (int attempt = 0; s && attempt < 4; ++attempt) {
-        for (std::uint32_t state = s->state.load(); state != kReady && state != kFailed; state = s->state.load())
-            emscripten_futex_wait(&s->state, state, INFINITY);
-        if (s->state.load() == kReady) {
+    if (s && s->state.load(std::memory_order_acquire) == kWanted) fetch_slot(s);
+    read_ahead(index);
+    for (int attempt = 0; s && attempt < 30; ++attempt) {
+        for (std::uint32_t state = s->state.load(std::memory_order_acquire); state != kReady && state != kFailed; state = s->state.load(std::memory_order_acquire))
+            emscripten_futex_wait(&s->state, state, 50 * 1000 * 1000);
+        if (s->state.load(std::memory_order_acquire) == kReady) {
             s->used = ++g_use_clock;
             return s;
         }
-        usleep(100000);
-        s->state.store(kWanted, std::memory_order_release);
-        ps2::wake_render_thread();
+        if (s->state.load(std::memory_order_acquire) == kFailed) {
+            s->state.store(kWanted, std::memory_order_release);
+            fetch_slot(s);
+        }
     }
     return nullptr;
 }
@@ -219,12 +285,11 @@ bool disc_ready(std::uint64_t offset, std::size_t size) {
         Slot *s = want(index);
         if (s && s->state.load(std::memory_order_acquire) == kFailed) {
             s->state.store(kWanted, std::memory_order_release);
-            ps2::wake_render_thread();
+            fetch_slot(s);
         }
         ready = ready && s && s->state.load(std::memory_order_acquire) == kReady;
-        advance(index);
     }
-    read_ahead(std::max(last, g_last_chunk));
+    read_ahead(last);
     return ready;
 }
 
@@ -245,9 +310,9 @@ std::size_t read_disc(std::uint64_t offset, void *out, std::size_t size) {
 
 void service_disc() {
     for (Slot &s : g_slots) {
-        std::uint32_t expected = kWanted;
-        if (s.state.compare_exchange_strong(expected, kLoading, std::memory_order_acq_rel))
-            ps2web_fetch(g_disc_url, static_cast<double>(s.index * kChunk), static_cast<int>(s.size), s.data, &s.state);
+        if (s.state.load(std::memory_order_acquire) == kWanted) {
+            fetch_slot(&s);
+        }
     }
 }
 
@@ -346,6 +411,17 @@ extern "C" EMSCRIPTEN_KEEPALIVE double ps2web_idle_ms(int which) {
     return which ? g_render_idle.load() : g_emulation_idle.load();
 }
 
+extern "C" EMSCRIPTEN_KEEPALIVE std::uint32_t ps2web_read_ee(std::uint32_t addr) {
+    if (addr < ps2::kRamSize - 3) {
+        return *reinterpret_cast<const std::uint32_t *>(ps2::g_ram + addr);
+    }
+    return 0;
+}
+
+extern "C" EMSCRIPTEN_KEEPALIVE void *ps2web_ram_ptr() {
+    return ps2::g_ram;
+}
+
 int main(int argc, char **argv) {
     static Launch launch;
     for (int i = 2; i < argc; ++i) {
@@ -373,13 +449,15 @@ int main(int argc, char **argv) {
     g_disc_url = ps2web_disc_url();
     g_state_url = ps2web_state_url();
     ps2::g_options.on_vblank = on_vblank;
-    ps2::g_options.on_vu_program = [](const std::string &name, const std::uint8_t *code, std::size_t size) {
-        static bool unsupported = false;
-        if (unsupported) return;
-        const int status = ps2web_save_program(name.c_str(), code, static_cast<int>(size));
-        if (status == 200 || status == 201) std::fprintf(stderr, "[web] saved VU1 program %s\n", name.c_str());
-        else unsupported = true;
-    };
+    if (EM_ASM_INT({ return Module.recordVu ? 1 : 0; })) {
+        ps2::g_options.on_vu_program = [](const std::string &name, const std::uint8_t *code, std::size_t size) {
+            static bool unsupported = false;
+            if (unsupported) return;
+            const int status = ps2web_save_program(name.c_str(), code, static_cast<int>(size));
+            if (status == 200 || status == 201) std::fprintf(stderr, "[web] saved VU1 program %s\n", name.c_str());
+            else unsupported = true;
+        };
+    }
     if (!EM_ASM_INT({ return Module.noCard ? 1 : 0; })) {
         ps2::g_options.memcard_path = "/memcard/Mcd001.ps2";
         ps2::g_options.on_memcard_saved = [] { MAIN_THREAD_ASYNC_EM_ASM({ if (Module.ps2CardSaved) Module.ps2CardSaved(); }); };

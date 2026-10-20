@@ -245,8 +245,11 @@ void transfer_pixel(std::uint32_t value) {
 
 std::uint8_t g_carry[4];
 std::size_t g_carried = 0;
+std::uint32_t g_cbp0 = ~0u, g_cbp1 = ~0u;
 
 void feed_image(const std::uint8_t *data, std::size_t bytes) {
+    g_cbp0 = ~0u;
+    g_cbp1 = ~0u;
 #ifdef PS2_GPU
     if (gpu_on() && (g_state.trxdir & 3u) == 0) gpu::image_data(data, bytes);
 #endif
@@ -273,6 +276,8 @@ void feed_image(const std::uint8_t *data, std::size_t bytes) {
 }
 
 void local_copy() {
+    g_cbp0 = ~0u;
+    g_cbp1 = ~0u;
     const std::uint64_t buf = g_state.bitbltbuf, pos = g_state.trxpos, reg = g_state.trxreg;
     const std::uint32_t sbp = static_cast<std::uint32_t>(buf) & 0x3FFFu, sbw = static_cast<std::uint32_t>(buf >> 16) & 0x3Fu, spsm = static_cast<std::uint32_t>(buf >> 24) & 0x3Fu;
     const std::uint32_t dbp = static_cast<std::uint32_t>(buf >> 32) & 0x3FFFu, dbw = static_cast<std::uint32_t>(buf >> 48) & 0x3Fu, dpsm = static_cast<std::uint32_t>(buf >> 56) & 0x3Fu;
@@ -295,21 +300,21 @@ void local_copy() {
 
 void load_clut(std::uint64_t tex0) {
     const std::uint32_t cld = static_cast<std::uint32_t>(tex0 >> 61) & 7u;
-    static std::uint32_t cbp0 = ~0u, cbp1 = ~0u;
     const std::uint32_t cbp = static_cast<std::uint32_t>(tex0 >> 37) & 0x3FFFu;
-    switch (cld) {
-    case 0: return;
-    case 1: break;
-    case 2: cbp0 = cbp; break;
-    case 3: cbp1 = cbp; break;
-    case 4: if (cbp0 == cbp) return; cbp0 = cbp; break;
-    case 5: if (cbp1 == cbp) return; cbp1 = cbp; break;
-    default: return;
-    }
     const std::uint32_t psm = static_cast<std::uint32_t>(tex0 >> 20) & 0x3Fu;
     const std::uint32_t cpsm = static_cast<std::uint32_t>(tex0 >> 51) & 0xFu;
     const std::uint32_t csm = static_cast<std::uint32_t>(tex0 >> 55) & 1u;
     const std::uint32_t csa = static_cast<std::uint32_t>(tex0 >> 56) & 0x1Fu;
+    const std::uint32_t cbp_key = cbp | (cpsm << 14) | (csa << 18) | (csm << 23);
+    switch (cld) {
+    case 0: return;
+    case 1: break;
+    case 2: g_cbp0 = cbp_key; break;
+    case 3: g_cbp1 = cbp_key; break;
+    case 4: if (g_cbp0 == cbp_key) return; g_cbp0 = cbp_key; break;
+    case 5: if (g_cbp1 == cbp_key) return; g_cbp1 = cbp_key; break;
+    default: return;
+    }
 #ifdef PS2_GPU
     if (gpu_on()) gpu::load_clut(tex0, g_state.texclut);
 #endif
@@ -444,6 +449,8 @@ void init() {
 }
 
 void render_reset() {
+    g_cbp0 = ~0u;
+    g_cbp1 = ~0u;
 #ifdef PS2_GPU
     g_seen_ranges.clear();
     g_transfer_stale = false;
@@ -565,13 +572,15 @@ void write(std::uint32_t reg, std::uint64_t value) {
     case 0x18: case 0x19: s.ctx[reg - 0x18].xyoffset = value; break;
     case 0x1A: s.prmodecont = value; break;
     case 0x1B: s.prmode = value; break;
-    case 0x1C: s.texclut = value; break;
+    case 0x1C: s.texclut = value; g_cbp0 = ~0u; g_cbp1 = ~0u; break;
     case 0x22: s.scanmsk = value; break;
     case 0x34: case 0x35: s.ctx[reg - 0x34].miptbp1 = value; break;
     case 0x36: case 0x37: s.ctx[reg - 0x36].miptbp2 = value; break;
     case 0x3B: s.texa = value; break;
     case 0x3D: s.fogcol = value; break;
     case 0x3F:
+        g_cbp0 = ~0u;
+        g_cbp1 = ~0u;
 #ifdef PS2_GPU
         if (gpu_on()) gpu::texflush();
 #endif
@@ -600,7 +609,7 @@ void write(std::uint32_t reg, std::uint64_t value) {
 #ifdef PS2_GPU
         if (gpu_on()) {
             if ((value & 3u) == 0) gpu::image_begin(s);
-            else if ((value & 3u) == 2) gpu::local_copy(s);
+            else if ((value & 3u) == 2) { g_cbp0 = ~0u; g_cbp1 = ~0u; gpu::local_copy(s); }
             else if ((value & 3u) == 1 && !cpu_raster()) download_source(s);
         }
 #endif
@@ -860,7 +869,7 @@ bool present(const DisplayRegs &r) {
     const std::uint32_t width = ((static_cast<std::uint32_t>(disp >> 32) & 0xFFFu) + 1) / magh, height = ((static_cast<std::uint32_t>(disp >> 44) & 0x7FFu) + 1) / magv;
     if (!width || !height || width > 2048 || height > 2048) return true;
     const gpu::DisplaySource src{(static_cast<std::uint32_t>(fb) & 0x1FFu) * 32, static_cast<std::uint32_t>(fb >> 9) & 0x3Fu, static_cast<std::uint32_t>(fb >> 15) & 0x1Fu,
-                                 static_cast<std::uint32_t>(fb >> 32) & 0x7FFu, static_cast<std::uint32_t>(fb >> 43) & 0x7FFu, width, height, (r.smode2 & 3u) == 3u};
+                                 static_cast<std::uint32_t>(fb >> 32) & 0x7FFu, static_cast<std::uint32_t>(fb >> 43) & 0x7FFu, width, height, (r.smode2 & 1u) != 0};
     return gpu::present(src);
 #else
     return false;
@@ -881,7 +890,7 @@ bool display(const DisplayRegs &r, std::vector<std::uint32_t> &rgba, std::uint32
     width = dw / magh;
     height = dh / magv;
     if (!width || !height || width > 2048 || height > 2048) return false;
-    const bool halved = (r.smode2 & 3u) == 3u;
+    const bool halved = (r.smode2 & 1u) != 0;
 #ifdef PS2_GPU
     if (gpu_on()) {
         const gpu::DisplaySource src{fbp * 32, fbw, psm, dbx, dby, width, height, halved};
@@ -931,7 +940,7 @@ bool copy_frame(const DisplayRegs &r, std::vector<std::uint32_t> &rgba, std::uin
         const std::uint32_t w = ((static_cast<std::uint32_t>(disp >> 32) & 0xFFFu) + 1) / magh, h = ((static_cast<std::uint32_t>(disp >> 44) & 0x7FFu) + 1) / magv;
         if (!w || !h || w > 2048 || h > 2048) return false;
         const gpu::DisplaySource src{(static_cast<std::uint32_t>(fb) & 0x1FFu) * 32, static_cast<std::uint32_t>(fb >> 9) & 0x3Fu, static_cast<std::uint32_t>(fb >> 15) & 0x1Fu,
-                                     static_cast<std::uint32_t>(fb >> 32) & 0x7FFu, static_cast<std::uint32_t>(fb >> 43) & 0x7FFu, w, h, (r.smode2 & 3u) == 3u};
+                                     static_cast<std::uint32_t>(fb >> 32) & 0x7FFu, static_cast<std::uint32_t>(fb >> 43) & 0x7FFu, w, h, (r.smode2 & 1u) != 0};
         got = gpu::display_async(src, rgba, width, height);
     } else
 #endif
@@ -942,7 +951,7 @@ bool copy_frame(const DisplayRegs &r, std::vector<std::uint32_t> &rgba, std::uin
         return true;
     }
     static const bool weave_off = std::getenv("PS2_NO_DEINTERLACE") != nullptr;
-    const bool blend = (r.smode2 & 3u) == 3u && !weave_off;
+    const bool blend = (r.smode2 & 1u) != 0 && !weave_off;
     for (std::size_t i = 0; i < rgba.size(); ++i) {
         const std::uint32_t c = rgba[i];
         if (blend) rgba[i] = (c & previous[i]) + (((c ^ previous[i]) & 0xFEFEFEFEu) >> 1);

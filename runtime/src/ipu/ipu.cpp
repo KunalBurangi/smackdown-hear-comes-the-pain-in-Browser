@@ -83,12 +83,12 @@ struct Tables {
     Lookup motion = build(kMotionCode), dmv = build(kDmVector), dc_luma = build(kDcSizeLuma), dc_chroma = build(kDcSizeChroma);
     Lookup cbp = build(kCodedBlockPattern);
     DctLookup dct0 = build(kDctTable0), dct1 = build(kDctTable1);
-    double cosines[8][8];
+    float cosines[8][8];
 
     Tables() {
         for (int x = 0; x < 8; ++x)
             for (int u = 0; u < 8; ++u)
-                cosines[x][u] = (u ? 0.5 : 0.5 / std::sqrt(2.0)) * std::cos((2 * x + 1) * u * 3.14159265358979323846 / 16.0);
+                cosines[x][u] = static_cast<float>((u ? 0.5 : 0.5 / std::sqrt(2.0)) * std::cos((2 * x + 1) * u * 3.14159265358979323846 / 16.0));
     }
 };
 
@@ -232,16 +232,16 @@ bool read_coefficient(const DctLookup &l, int &run, int &level) {
 
 void idct(const int *in, std::int16_t *out) {
     const auto &c = tables().cosines;
-    double rows[8][8];
+    float rows[8][8];
     for (int v = 0; v < 8; ++v)
         for (int x = 0; x < 8; ++x) {
-            double s = 0;
+            float s = 0;
             for (int u = 0; u < 8; ++u) s += c[x][u] * in[v * 8 + u];
             rows[v][x] = s;
         }
     for (int y = 0; y < 8; ++y)
         for (int x = 0; x < 8; ++x) {
-            double s = 0;
+            float s = 0;
             for (int v = 0; v < 8; ++v) s += c[y][v] * rows[v][x];
             out[y * 8 + x] = static_cast<std::int16_t>(std::clamp(static_cast<int>(std::floor(s + 0.5)), -256, 255));
         }

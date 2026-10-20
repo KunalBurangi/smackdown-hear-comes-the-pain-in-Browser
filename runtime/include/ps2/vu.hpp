@@ -9,11 +9,40 @@ namespace ps2::vu {
 
 inline bool lane(unsigned dest, int i) { return dest & (8u >> i); }
 
+inline void update_flags(Vu0Regs &r, const Reg128 &v, unsigned dest) {
+    std::uint32_t mac = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (!(dest & (8u >> i))) continue;
+        const std::uint32_t bit = 3u - static_cast<std::uint32_t>(i);
+        const std::uint32_t x = v.w[i];
+        if (!(x & 0x7F800000u)) mac |= 1u << bit;
+        if (x & 0x80000000u) mac |= 1u << (bit + 4);
+        if ((x & 0x7FFFFFFFu) == 0x7FFFFFFFu) mac |= 1u << (bit + 12);
+    }
+    r.mac = mac;
+    std::uint32_t status = r.status & 0xFF0u;
+    if (mac & 0x000Fu) status |= 0x1u;
+    if (mac & 0x00F0u) status |= 0x2u;
+    if (mac & 0x0F00u) status |= 0x4u;
+    if (mac & 0xF000u) status |= 0x8u;
+    status |= (status & 0xFu) << 6;
+    r.status = (status & ~0x30u) | (r.status & 0x30u);
+}
+
+template <typename F>
+inline void copy_lanes(Vu0Regs &v, unsigned dest, unsigned fd, F f) {
+    Reg128 r = v.vf[fd];
+    for (int i = 0; i < 4; ++i)
+        if (lane(dest, i)) r.w[i] = f(i);
+    if (fd) v.vf[fd] = r;
+}
+
 template <typename F>
 inline void apply(Vu0Regs &v, unsigned dest, unsigned fd, F f) {
     Reg128 r = v.vf[fd];
     for (int i = 0; i < 4; ++i)
         if (lane(dest, i)) r.w[i] = f(i);
+    update_flags(v, r, dest);
     if (fd) v.vf[fd] = r;
 }
 
@@ -22,6 +51,7 @@ inline void apply_acc(Vu0Regs &v, unsigned dest, F f) {
     Reg128 r = v.acc;
     for (int i = 0; i < 4; ++i)
         if (lane(dest, i)) r.w[i] = f(i);
+    update_flags(v, r, dest);
     v.acc = r;
 }
 
@@ -112,6 +142,7 @@ inline void opmsub(Vu0Regs &v, unsigned fd, unsigned fs, unsigned ft) {
     r.w[0] = fp::sub(v.acc.w[0], fp::mul(s.w[1], t.w[2]));
     r.w[1] = fp::sub(v.acc.w[1], fp::mul(s.w[2], t.w[0]));
     r.w[2] = fp::sub(v.acc.w[2], fp::mul(s.w[0], t.w[1]));
+    update_flags(v, r, 0xEu);
     if (fd) v.vf[fd] = r;
 }
 
@@ -119,7 +150,7 @@ inline void abs(Vu0Regs &v, unsigned dest, unsigned ft, unsigned fs) {
     apply(v, dest, ft, [&](int i) { return v.vf[fs].w[i] & fp::kAbs; });
 }
 inline void move(Vu0Regs &v, unsigned dest, unsigned ft, unsigned fs) {
-    apply(v, dest, ft, [&](int i) { return v.vf[fs].w[i]; });
+    copy_lanes(v, dest, ft, [&](int i) { return v.vf[fs].w[i]; });
 }
 inline void mr32(Vu0Regs &v, unsigned dest, unsigned ft, unsigned fs) {
     const Reg128 s = v.vf[fs];
@@ -157,7 +188,7 @@ inline void rsqrt(Vu0Regs &v, std::uint32_t s, std::uint32_t t) {
 
 inline void mfir(Vu0Regs &v, unsigned dest, unsigned ft, unsigned is) {
     const std::uint32_t value = static_cast<std::uint32_t>(static_cast<std::int32_t>(static_cast<std::int16_t>(v.vi[is])));
-    apply(v, dest, ft, [&](int) { return value; });
+    copy_lanes(v, dest, ft, [&](int) { return value; });
 }
 
 inline void set_vi(Vu0Regs &v, unsigned index, std::uint32_t value) {

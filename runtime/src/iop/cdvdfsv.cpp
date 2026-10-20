@@ -25,10 +25,15 @@ std::uint32_t g_stream_pos = 0;
 std::uint64_t delay(std::uint32_t sectors) { return usec_to_cycles(400) + static_cast<std::uint64_t>(sectors) * usec_to_cycles(200); }
 
 void read_to_ee(std::uint32_t sector, std::uint32_t count, std::uint32_t dst) {
-    std::vector<std::uint8_t> data(static_cast<std::size_t>(count) * disc::kSector);
-    disc::read(sector, count, data.data());
     const std::uint32_t at = dst & (ps2::kRamSize - 1);
-    std::memcpy(ps2::g_ram + at, data.data(), std::min<std::size_t>(data.size(), ps2::kRamSize - at));
+    const std::size_t want = static_cast<std::size_t>(count) * disc::kSector;
+    if (at + want <= ps2::kRamSize) {
+        disc::read(sector, count, ps2::g_ram + at);
+    } else {
+        std::vector<std::uint8_t> data(want);
+        disc::read(sector, count, data.data());
+        std::memcpy(ps2::g_ram + at, data.data(), ps2::kRamSize - at);
+    }
 }
 
 }
@@ -111,17 +116,26 @@ void install_cdvdfsv() {
         case 0x09: {
             const std::uint32_t cmd = ee32(args + 12);
             switch (cmd) {
-            case 1: g_stream_pos = sector; g_streaming = true; set_ee32(ret, 1); return true;
+            case 1:
+                g_stream_pos = sector;
+                g_streaming = true;
+                set_ee32(ret, 1);
+                disc::ready(sector, 2048);
+                return true;
             case 2: {
                 const std::uint32_t pos = g_stream_pos;
                 g_stream_pos += count;
                 set_ee32(ret, count);
-                disc::ready(pos, count);
+                disc::ready(pos, count + 256);
                 schedule(now() + delay(count), Job{kJobFsvRead, pos, count, dst});
                 return false;
             }
             case 3: g_streaming = false; set_ee32(ret, 1); return true;
-            case 4: case 9: g_stream_pos = sector; set_ee32(ret, 1); return true;
+            case 4: case 9:
+                g_stream_pos = sector;
+                set_ee32(ret, 1);
+                disc::ready(sector, 2048);
+                return true;
             case 5: set_ee32(ret, 1); return true;
             case 6: set_ee32(ret, sector); return true;
             default: set_ee32(ret, 1); return true;
@@ -149,6 +163,7 @@ void install_cdvdfsv() {
         if (entry) {
             set_ee32(args, entry->sector);
             set_ee32(args + 4, entry->size);
+            if (!entry->directory) disc::ready(entry->sector, std::min<std::uint32_t>((entry->size + disc::kSector - 1) / disc::kSector, 2048));
         }
         std::fprintf(stderr, "[cdvdfsv] search %s -> %s\n", path.c_str(), entry ? "found" : "missing");
         set_ee32(ret, entry ? 1u : 0u);

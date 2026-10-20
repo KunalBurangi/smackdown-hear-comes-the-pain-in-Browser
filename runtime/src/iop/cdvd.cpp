@@ -98,6 +98,7 @@ void install_cdvd() {
         const std::string name = ram_string(arg(c, 1), 256);
         const auto entry = disc::find(name);
         if (!entry) { c.r[2] = 0; return; }
+        if (!entry->directory) disc::ready(entry->sector, std::min<std::uint32_t>((entry->size + disc::kSector - 1) / disc::kSector, 2048));
         const std::uint32_t p = arg(c, 0);
         write32(p, entry->sector);
         write32(p + 4, entry->size);
@@ -151,6 +152,7 @@ void install_cdvd() {
         const std::string name = ram_string(arg(c, 1), 256);
         const auto entry = disc::find(name);
         if (!entry) { c.r[2] = 0; return; }
+        if (!entry->directory) disc::ready(entry->sector, std::min<std::uint32_t>((entry->size + disc::kSector - 1) / disc::kSector, 2048));
         write32(arg(c, 0), entry->sector);
         write32(arg(c, 0) + 4, entry->size);
         c.r[2] = 1;

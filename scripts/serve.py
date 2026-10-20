@@ -8,6 +8,7 @@ import http.server
 import os
 import re
 import shutil
+import socket
 import sys
 
 RECORD = None
@@ -17,11 +18,22 @@ if '--record' in sys.argv:
     del sys.argv[at:at + 2]
 BUILD = os.path.abspath(sys.argv[1])
 DISC = os.path.abspath(sys.argv[2])
+DISC_FD = os.open(DISC, os.O_RDONLY) if os.path.isfile(DISC) else None
 PORT = int(sys.argv[3]) if len(sys.argv) > 3 else 8620
 TYPES = {'.html': 'text/html', '.js': 'text/javascript', '.wasm': 'application/wasm', '.data': 'application/octet-stream'}
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
+    protocol_version = 'HTTP/1.1'
+
+    def setup(self):
+        super().setup()
+        try:
+            self.connection.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+            self.connection.setsockopt(socket.SOL_SOCKET, socket.SO_SNDBUF, 1024 * 1024)
+        except Exception:
+            pass
+
     def target(self):
         path = self.path.split('?', 1)[0]
         if path in ('/', '/index.html'):
@@ -79,6 +91,11 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_response(200)
         self.headers_for(path, end - start + 1)
+        if path == DISC and DISC_FD is not None:
+            left = end - start + 1
+            chunk = os.pread(DISC_FD, left, start)
+            self.wfile.write(chunk)
+            return
         with open(path, 'rb') as f:
             f.seek(start)
             left = end - start + 1

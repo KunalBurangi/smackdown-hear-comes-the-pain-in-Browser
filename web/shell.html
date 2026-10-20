@@ -15,6 +15,11 @@
   #stats { font-variant-numeric: tabular-nums; color: #9ad; }
   select { background: #2a3a55; color: #fff; border: 0; padding: 5px 8px; border-radius: 4px; }
   button { background: #2a3a55; color: #fff; border: 0; padding: 6px 14px; border-radius: 4px; cursor: pointer; }
+  #controls-help { max-width: min(560px, calc(100vw - 48px)); border: 1px solid #52627e; border-radius: 10px; background: #141a25; color: #e8edf7; line-height: 1.5; }
+  #controls-help::backdrop { background: rgba(0, 0, 0, .68); }
+  #controls-help h2 { margin: 0 0 12px; }
+  #controls-help p { margin: 8px 0; }
+  kbd { padding: 1px 5px; border: 1px solid #52627e; border-radius: 4px; background: #202b3d; }
   #overlay { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); padding: 16px; }
   #panel { display: flex; flex-direction: column; align-items: center; gap: 14px; max-width: 520px; text-align: center; }
   #help { margin: 0; line-height: 1.5; color: #e8c37a; }
@@ -112,11 +117,20 @@
     <option value="3">1920×1536</option>
   </select>
   <button id="controls-toggle" type="button" hidden>Hide controls</button>
+  <button id="show-controls-help" type="button" title="Show keyboard and controller controls">Controls</button>
   <button id="export-card" type="button" title="Download the memory card in slot 1 as a .ps2 file">Export card</button>
   <button id="import-card" type="button" title="Put a .ps2 memory card file in slot 1">Import card</button>
   <input id="import-file" type="file" accept=".ps2" hidden>
   <button id="fullscreen" type="button" title="Fullscreen (F or double click)">Fullscreen</button></div>
 <button id="exit-fullscreen" type="button">Exit fullscreen</button>
+<dialog id="controls-help" aria-labelledby="controls-help-title">
+  <h2 id="controls-help-title">Game controls</h2>
+  <p><strong>Keyboard:</strong> Arrows or I/J/K/L move; <kbd>Z</kbd> is PS2 Cross (strike/run); <kbd>X</kbd> is Circle (grapple/Irish whip); combine grapple with a direction. <kbd>A</kbd> is Square; <kbd>S</kbd> is Triangle.</p>
+  <p><strong>Reversals:</strong> <kbd>1</kbd> is L2 (reverse strikes); <kbd>2</kbd> is R2 (reverse grapples). <kbd>Enter</kbd> pauses; <kbd>Backspace</kbd> is Select.</p>
+  <p><strong>Gamepad:</strong> Standard browser gamepad mapping. Cross/A strikes, Circle/B grapples, left stick moves.</p>
+  <p id="controller-status" aria-live="polite">Controller: not detected</p>
+  <button id="close-controls-help" type="button">Close</button>
+</dialog>
 <div id="overlay"><div id="panel"><p id="help" hidden></p><button id="start" disabled>Loading…</button></div></div>
 <script>
 const statusEl = document.getElementById('status');
@@ -271,6 +285,10 @@ scaleSelect.addEventListener('change', () => {
 });
 
 const controlsButton = document.getElementById('controls-toggle');
+const controlsHelp = document.getElementById('controls-help');
+document.getElementById('show-controls-help').addEventListener('click', () => controlsHelp.showModal());
+document.getElementById('close-controls-help').addEventListener('click', () => controlsHelp.close());
+controlsHelp.addEventListener('click', (e) => { if (e.target === controlsHelp) controlsHelp.close(); });
 let hideControls = false;
 try { hideControls = localStorage.getItem('ps2web-hide-controls') === '1'; } catch (e) {}
 function updateControls() {
@@ -394,6 +412,8 @@ window.addEventListener('keydown', (e) => { if (e.code in keyMap || stickKeys.ha
 window.addEventListener('keyup', (e) => { keys.delete(e.code); });
 const padButtons = [[0, 14], [1, 13], [2, 15], [3, 12], [4, 10], [5, 11], [6, 8], [7, 9], [8, 0], [9, 3], [10, 1], [11, 2],
                     [12, 4], [13, 6], [14, 7], [15, 5]];
+const ps2ButtonNames = {0: 'Select', 1: 'L3', 2: 'R3', 3: 'Start', 4: 'Up', 5: 'Right', 6: 'Down', 7: 'Left',
+                        8: 'L2', 9: 'R2', 10: 'L1', 11: 'R1', 12: 'Triangle', 13: 'Circle', 14: 'Cross', 15: 'Square'};
 const axis = (v) => Math.max(0, Math.min(255, Math.round((v + 1) * 127.5)));
 // the keyboard and touch controls are player 1 along with the first gamepad, a second gamepad is player 2
 const players = [0, 1].map(() => ({ plugged: false, pad: -1, pressure: '', strong: 0, weak: 0, rumbleAt: 0 }));
@@ -411,10 +431,14 @@ function pollPlayer(port, gamepad, own) {
   if (own) {
     buttons |= touchPad.buttons;
     for (const k of keys) if (k in keyMap) buttons |= 1 << keyMap[k];
-    if (keys.has('KeyJ')) lx = 0;
-    if (keys.has('KeyL')) lx = 255;
-    if (keys.has('KeyI')) ly = 0;
-    if (keys.has('KeyK')) ly = 255;
+    // The keyboard D-pad also drives the left stick. Many PS2 games, including
+    // wrestling games, use the analog stick for movement and grappling range.
+    const left = keys.has('KeyJ') || keys.has('ArrowLeft');
+    const right = keys.has('KeyL') || keys.has('ArrowRight');
+    const up = keys.has('KeyI') || keys.has('ArrowUp');
+    const down = keys.has('KeyK') || keys.has('ArrowDown');
+    if (left !== right) lx = left ? 0 : 255;
+    if (up !== down) ly = up ? 0 : 255;
     if (touchPad.stick) {
       lx = axis(touchPad.x);
       ly = axis(touchPad.y);
@@ -460,6 +484,15 @@ function pollInput() {
   const pads = [...(navigator.getGamepads ? navigator.getGamepads() : [])].filter((pad) => pad);
   pollPlayer(0, pads[0] || null, true);
   pollPlayer(1, pads[1] || null, false);
+  const pad = pads[0];
+  const monitor = document.getElementById('controller-status');
+  if (!pad) monitor.textContent = 'Controller: not detected. Connect it and press a button once.';
+  else {
+    const raw = pad.buttons.map((button, index) => button && (button.pressed || button.value > 0.1) ? index : -1).filter((index) => index >= 0);
+    const delivered = raw.map((index) => ps2ButtonNames[padButtons.find((entry) => entry[0] === index)?.[1]] || 'unknown');
+    const axes = pad.axes.slice(0, 4).map((value) => value.toFixed(2)).join(', ');
+    monitor.textContent = `Controller: ${pad.id || 'unnamed'} (${pad.mapping || 'nonstandard mapping'})\nRaw pressed buttons: ${raw.join(', ') || 'none'}\nSent to game: ${delivered.join(', ') || 'none'}\nAxes: ${axes || 'none'}`;
+  }
 }
 
 // some browsers cannot show a canvas drawn by another GPU (hybrid laptops on Linux), so each adapter draws a few test frames first
