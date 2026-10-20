@@ -1541,19 +1541,9 @@ L_002ACE40:
     c.budget -= 9;
     { const std::uint32_t t = c.r[31].w[0]; set32(c.r[29], c.r[29].w[0] + 256u);  c.pc = t; return; }
 L_002ACE70:
-    set32(c.r[29], c.r[29].w[0] - 128u);
-    st64((c.r[29].w[0] + 112u), c.r[31].d[0]);
-    st128((c.r[29].w[0] + 96u) & ~15u, c.r[22]);
-    st128((c.r[29].w[0] + 80u) & ~15u, c.r[21]);
-    st128((c.r[29].w[0] + 64u) & ~15u, c.r[20]);
-    st128((c.r[29].w[0] + 48u) & ~15u, c.r[19]);
-    st128((c.r[29].w[0] + 32u) & ~15u, c.r[18]);
-    st128((c.r[29].w[0] + 16u) & ~15u, c.r[17]);
-    st128((c.r[29].w[0]) & ~15u, c.r[16]);
-    c.r[17].d[0] = 0ull + 0ull;
     st32((c.r[4].w[0] + 132u), 0u);
-    c.budget -= 13;
-    { c.r[31].sd[0] = static_cast<std::int32_t>(0x002ACEA4u); c.r[16].d[0] = c.r[4].d[0] + 0ull;  if (depth < kMaxDepth) unit_003D(c, 83u, depth + 1u); else { c.pc = 0x001F53F0u; return; } if (c.pc != 0x002ACEA4u) [[unlikely]] return; }
+    { const std::uint32_t t = c.r[31].w[0]; c.pc = t; return; }
+
 L_002ACEA4:
     c.r[4].d[0] = ld8((c.r[2].w[0]));
     set32(c.r[3], 0u + 41u);
