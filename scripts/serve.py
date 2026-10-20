@@ -107,6 +107,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.headers_for(path, os.path.getsize(packed), 'gzip')
             with open(packed, 'rb') as f:
                 shutil.copyfileobj(f, self.wfile, 1 << 20)
+            self.wfile.flush()
             return
         size = os.path.getsize(path)
         match = re.match(r'bytes=(\d+)-(\d*)', self.headers.get('Range', ''))
@@ -123,8 +124,16 @@ class Handler(http.server.BaseHTTPRequestHandler):
         fd = get_fd(path)
         if fd is not None:
             left = end - start + 1
-            chunk = os.pread(fd, left, start)
-            self.wfile.write(chunk)
+            pos = start
+            while left > 0:
+                chunk_len = min(left, 1 << 20)
+                chunk = os.pread(fd, chunk_len, pos)
+                if not chunk:
+                    break
+                self.wfile.write(chunk)
+                pos += len(chunk)
+                left -= len(chunk)
+            self.wfile.flush()
             return
 
         with open(path, 'rb') as f:
@@ -136,6 +145,7 @@ class Handler(http.server.BaseHTTPRequestHandler):
                     break
                 self.wfile.write(chunk)
                 left -= len(chunk)
+            self.wfile.flush()
 
     def do_PUT(self):
         match = re.match(r'^/vu1/([0-9A-F]{16}_[0-9A-F]{4}\.bin)$', self.path.split('?', 1)[0])
