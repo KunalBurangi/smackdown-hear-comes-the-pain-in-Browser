@@ -4536,9 +4536,13 @@ L_002AB37C:
     c.budget -= 4;
     { const std::uint32_t t = c.r[31].w[0]; set32(c.r[29], c.r[29].w[0] + 48u);  c.pc = t; return; }
 L_002AB390:
-    set32(c.r[2], 1u);
-    { const std::uint32_t t = c.r[31].w[0]; c.pc = t; return; }
-
+    set32(c.r[29], c.r[29].w[0] - 48u);
+    st64((c.r[29].w[0] + 32u), c.r[31].d[0]);
+    st128((c.r[29].w[0] + 16u) & ~15u, c.r[17]);
+    st128((c.r[29].w[0]) & ~15u, c.r[16]);
+    set32(c.r[5], ld32((c.r[4].w[0] + 120u)));
+    c.budget -= 7;
+    { c.r[31].sd[0] = static_cast<std::int32_t>(0x002AB3ACu); c.r[17].d[0] = c.r[4].d[0] + 0ull;  if (depth < kMaxDepth) unit_006A(c, 375u, depth + 1u); else { c.pc = 0x002AB5D0u; return; } if (c.pc != 0x002AB3ACu) [[unlikely]] return; }
 L_002AB3AC:
     c.budget -= 2;
     { const bool t = c.r[2].d[0] == 0ull; c.r[16].d[0] = 0ull + 0ull;  if (t) { goto L_002AB3D8; } }
@@ -4592,9 +4596,12 @@ L_002AB438:
     c.budget -= 4;
     { const std::uint32_t t = c.r[31].w[0]; set32(c.r[29], c.r[29].w[0] + 48u);  c.pc = t; return; }
 L_002AB450:
-    set32(c.r[2], 1u);
-    { const std::uint32_t t = c.r[31].w[0]; c.pc = t; return; }
-
+    c.r[1].sd[0] = static_cast<std::int32_t>(0x00530000u);
+    set32(c.r[2], 0u + 212u);
+    set32(c.r[3], ld32((c.r[1].w[0] - 24392u)));
+    mmi::mult(c, 0, c.r[5].w[0], c.r[2].w[0]);
+    c.r[4].d[0] = c.lo.d[0];
+    set32(c.r[2], 0u + 1u);
     set32(c.r[4], c.r[3].w[0] + c.r[4].w[0]);
     set32(c.r[3], c.r[4].w[0] + 136u);
     set32(c.r[4], ld32((c.r[4].w[0] + 164u)));
