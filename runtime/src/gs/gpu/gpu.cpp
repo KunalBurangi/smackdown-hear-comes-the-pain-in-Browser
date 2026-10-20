@@ -115,7 +115,9 @@ struct Arena {
     std::uint32_t *data() { return words.get(); }
     std::uint32_t &operator[](std::size_t i) { return words[i]; }
 } g_arena;
-std::uint32_t g_clut_slot = 0, g_clut_loads = 0, g_texflushes = 0;
+std::uint32_t g_clut_slots[2] = {0, 0};
+std::uint32_t g_clut_next = 0;
+std::uint32_t g_clut_loads = 0, g_texflushes = 0;
 
 struct Image {
     bool active = false;
@@ -153,7 +155,7 @@ struct SetupCache {
     std::uint32_t flags = 0;
     std::uint64_t key = 0;
     Range tex;
-} g_setup_cache;
+} g_setup_cache[2];
 
 struct PreOp {
     bool clut = false;
@@ -1008,7 +1010,7 @@ std::uint32_t make_setup(const State &st, std::uint64_t attr, std::uint32_t *w) 
     w[19] = (static_cast<std::uint32_t>(c.clamp >> 24) & 0x3FFu) | ((static_cast<std::uint32_t>(c.clamp >> 34) & 0x3FFu) << 16);
     w[20] = (static_cast<std::uint32_t>(st.texa) & 0xFFu) | ((static_cast<std::uint32_t>(st.texa >> 32) & 0xFFu) << 8);
     w[21] = static_cast<std::uint32_t>(st.fogcol) & 0xFFFFFFu;
-    w[22] = g_clut_slot;
+    w[22] = g_clut_slots[(attr >> 9) & 1u];
     w[23] = z_max(zpsm);
     w[24] = 0xFFFFFFFFu;
     return flags;
@@ -1185,6 +1187,10 @@ bool init(Mode m) {
     g_clut = make_buffer(static_cast<std::uint64_t>(kClutSlots) * kClutEntries * 4, WGPUBufferUsage_Storage | WGPUBufferUsage_CopySrc | WGPUBufferUsage_CopyDst);
     std::vector<std::uint32_t> zero_clut(kClutEntries, 0);
     wgpuQueueWriteBuffer(g_queue, g_clut, 0, zero_clut.data(), zero_clut.size() * 4);
+    g_clut_slots[0] = g_clut_slots[1] = 0;
+    g_clut_next = 0;
+    g_setup_cache[0] = SetupCache{};
+    g_setup_cache[1] = SetupCache{};
     g_scratch = make_buffer((static_cast<std::uint64_t>(g_copy_words) + 2ull * g_field_words) * 4, WGPUBufferUsage_Storage | WGPUBufferUsage_CopySrc);
     g_cache = make_buffer(static_cast<std::uint64_t>(kCacheWords) * 4, WGPUBufferUsage_Storage | WGPUBufferUsage_CopyDst);
     g_decoded = make_buffer(static_cast<std::uint64_t>(kDecodedWords) * 4, WGPUBufferUsage_Storage);
@@ -1251,11 +1257,12 @@ void draw(const State &st, const Vertex *v, int count) {
     if (!(st.prmodecont & 1u)) attr = (st.prim & 7u) | (st.prmode & ~7ull);
     const std::uint32_t prim = static_cast<std::uint32_t>(st.prim) & 7u;
     const Context &c = st.ctx[(attr >> 9) & 1u];
-    SetupCache &cache = g_setup_cache;
-    if (cache.generation != g_setup_generation || cache.attr != attr || cache.clut != g_clut_slot) {
+    const std::uint32_t ctx = (attr >> 9) & 1u;
+    SetupCache &cache = g_setup_cache[ctx];
+    if (cache.generation != g_setup_generation || cache.attr != attr || cache.clut != g_clut_slots[ctx]) {
         cache.generation = g_setup_generation;
         cache.attr = attr;
-        cache.clut = g_clut_slot;
+        cache.clut = g_clut_slots[ctx];
         const std::uint32_t *w = cache.setup;
         cache.flags = make_setup(st, attr, cache.setup);
         cache.key = static_cast<std::uint64_t>(w[1]) | (static_cast<std::uint64_t>(w[2]) << 14) | (static_cast<std::uint64_t>(w[3]) << 20) |
@@ -1474,7 +1481,7 @@ void local_copy(const State &s) {
     dispatch_linear(kCopyWrite, w * h * g_scale * g_scale, write);
 }
 
-void load_clut(std::uint64_t tex0, std::uint64_t texclut) {
+void load_clut(int context, std::uint64_t tex0, std::uint64_t texclut) {
     flush_image();
     if (g_clut_loads + 2 >= kClutSlots) {
         emit_all();
@@ -1482,18 +1489,21 @@ void load_clut(std::uint64_t tex0, std::uint64_t texclut) {
     }
     const std::uint32_t psm = static_cast<std::uint32_t>(tex0 >> 20) & 0x3Fu;
     const std::uint32_t cpsm = (static_cast<std::uint32_t>(tex0 >> 51) & 0xFu) == 0 ? PSMCT32 : static_cast<std::uint32_t>(tex0 >> 51) & 0xFu;
-    const std::uint32_t next = (g_clut_slot + 1) % kClutSlots;
+    const std::uint32_t ctx = static_cast<std::uint32_t>(context) & 1u;
+    const std::uint32_t next = (g_clut_next + 1) % kClutSlots;
+    const std::uint32_t prev = g_clut_slots[ctx];
     const std::uint32_t tc = static_cast<std::uint32_t>(texclut);
     const std::uint32_t cbp = static_cast<std::uint32_t>(tex0 >> 37) & 0x3FFFu, csm = static_cast<std::uint32_t>(tex0 >> 55) & 1u;
     const std::uint32_t cbw = tc & 0x3Fu, cou = (tc >> 6) & 0x3Fu, cov = (tc >> 12) & 0x3FFu;
     PreOp op;
     op.clut = true;
-    const std::uint32_t rec[10] = {g_clut_slot, next, cbp, cpsm, csm, static_cast<std::uint32_t>(tex0 >> 56) & 0x1Fu, (psm == PSMT8 || psm == PSMT8H) ? 1u : 0u, cbw, cou, cov};
+    const std::uint32_t rec[10] = {prev, next, cbp, cpsm, csm, static_cast<std::uint32_t>(tex0 >> 56) & 0x1Fu, (psm == PSMT8 || psm == PSMT8H) ? 1u : 0u, cbw, cou, cov};
     std::memcpy(op.rec, rec, sizeof rec);
     op.range = csm ? region(cbp, cbw, cpsm, static_cast<int>(cou * 16), static_cast<int>(cov), static_cast<int>(cou * 16 + 255), static_cast<int>(cov))
                    : region(cbp, 1, cpsm, 0, 0, 15, 15);
     queue_pre(op);
-    g_clut_slot = next;
+    g_clut_slots[ctx] = next;
+    g_clut_next = next;
     ++g_clut_loads;
 }
 
@@ -1592,7 +1602,7 @@ void read_state(std::vector<std::uint32_t> &vram, std::uint32_t &scale, std::vec
     vram.resize(static_cast<std::size_t>(kMemorySize / 4) * g_scale * g_scale);
     read_back(g_vram, vram.size() * 4, vram.data());
     clut.resize(kClutEntries);
-    read_back(g_clut, kClutEntries * 4, clut.data(), static_cast<std::uint64_t>(g_clut_slot) * kClutEntries * 4);
+    read_back(g_clut, kClutEntries * 4, clut.data(), static_cast<std::uint64_t>(g_clut_slots[0]) * kClutEntries * 4);
 }
 
 void write_state(const std::vector<std::uint32_t> &vram, std::uint32_t scale, const std::vector<std::uint32_t> &clut) {
@@ -1608,7 +1618,7 @@ void write_state(const std::vector<std::uint32_t> &vram, std::uint32_t scale, co
             for (std::uint32_t k = 0; k < to; ++k) layers[w * to + k] = vram[w * from];
         wgpuQueueWriteBuffer(g_queue, g_vram, 0, layers.data(), layers.size() * 4);
     }
-    if (clut.size() >= kClutEntries) wgpuQueueWriteBuffer(g_queue, g_clut, static_cast<std::uint64_t>(g_clut_slot) * kClutEntries * 4, clut.data(), kClutEntries * 4);
+    if (clut.size() >= kClutEntries) wgpuQueueWriteBuffer(g_queue, g_clut, static_cast<std::uint64_t>(g_clut_slots[0]) * kClutEntries * 4, clut.data(), kClutEntries * 4);
     wait_idle();
 }
 

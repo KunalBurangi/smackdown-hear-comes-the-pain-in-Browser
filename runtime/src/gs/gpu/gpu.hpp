@@ -29,7 +29,7 @@ void draw(const State &s, const Vertex *v, int count);
 void image_begin(const State &s);
 void image_data(const std::uint8_t *data, std::size_t bytes);
 void local_copy(const State &s);
-void load_clut(std::uint64_t tex0, std::uint64_t texclut);
+void load_clut(int context, std::uint64_t tex0, std::uint64_t texclut);
 void flush();
 void texflush();
 void wait_idle();

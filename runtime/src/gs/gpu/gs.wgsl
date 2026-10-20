@@ -584,14 +584,15 @@ fn convert(s: Setup, raw: u32) -> u32 {
             return expand16(raw, s);
         }
         case 0x13u, 0x1Bu {
-            let e = clut[s.clut * CLUT_ENTRIES + (raw & 255u)];
+            let offset = select(raw & 255u, (s.csa * 16u + (raw & 255u)) & 511u, s.csa != 0u);
+            let e = clut[s.clut * CLUT_ENTRIES + offset];
             if (s.cpsm == PSMCT32 || s.cpsm == PSMCT24) {
                 return e;
             }
             return expand16(e, s);
         }
         case 0x14u, 0x24u, 0x2Cu {
-            let e = clut[s.clut * CLUT_ENTRIES + (((s.csa & 15u) * 16u + (raw & 15u)) & 511u)];
+            let e = clut[s.clut * CLUT_ENTRIES + ((s.csa * 16u + (raw & 15u)) & 511u)];
             if (s.cpsm == PSMCT32 || s.cpsm == PSMCT24) {
                 return e;
             }
