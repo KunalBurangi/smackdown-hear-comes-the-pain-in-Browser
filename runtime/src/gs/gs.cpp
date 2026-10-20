@@ -246,10 +246,13 @@ void transfer_pixel(std::uint32_t value) {
 std::uint8_t g_carry[4];
 std::size_t g_carried = 0;
 std::uint32_t g_cbp0 = ~0u, g_cbp1 = ~0u;
+std::uint64_t g_last_clut_tex0 = ~0ull, g_last_clut_texclut = ~0ull;
 
 void feed_image(const std::uint8_t *data, std::size_t bytes) {
     g_cbp0 = ~0u;
     g_cbp1 = ~0u;
+    g_last_clut_tex0 = ~0ull;
+    g_last_clut_texclut = ~0ull;
 #ifdef PS2_GPU
     if (gpu_on() && (g_state.trxdir & 3u) == 0) gpu::image_data(data, bytes);
 #endif
@@ -278,6 +281,8 @@ void feed_image(const std::uint8_t *data, std::size_t bytes) {
 void local_copy() {
     g_cbp0 = ~0u;
     g_cbp1 = ~0u;
+    g_last_clut_tex0 = ~0ull;
+    g_last_clut_texclut = ~0ull;
     const std::uint64_t buf = g_state.bitbltbuf, pos = g_state.trxpos, reg = g_state.trxreg;
     const std::uint32_t sbp = static_cast<std::uint32_t>(buf) & 0x3FFFu, sbw = static_cast<std::uint32_t>(buf >> 16) & 0x3Fu, spsm = static_cast<std::uint32_t>(buf >> 24) & 0x3Fu;
     const std::uint32_t dbp = static_cast<std::uint32_t>(buf >> 32) & 0x3FFFu, dbw = static_cast<std::uint32_t>(buf >> 48) & 0x3Fu, dpsm = static_cast<std::uint32_t>(buf >> 56) & 0x3Fu;
@@ -300,6 +305,7 @@ void local_copy() {
 
 void load_clut(std::uint64_t tex0) {
     const std::uint32_t cld = static_cast<std::uint32_t>(tex0 >> 61) & 7u;
+    if (cld == 0) return;
     const std::uint32_t cbp = static_cast<std::uint32_t>(tex0 >> 37) & 0x3FFFu;
     const std::uint32_t psm = static_cast<std::uint32_t>(tex0 >> 20) & 0x3Fu;
     const std::uint32_t cpsm = static_cast<std::uint32_t>(tex0 >> 51) & 0xFu;
@@ -307,16 +313,19 @@ void load_clut(std::uint64_t tex0) {
     const std::uint32_t csa = static_cast<std::uint32_t>(tex0 >> 56) & 0x1Fu;
     const std::uint32_t cbp_key = cbp | (cpsm << 14) | (csa << 18) | (csm << 23);
     switch (cld) {
-    case 0: return;
-    case 1: break;
     case 2: g_cbp0 = cbp_key; break;
     case 3: g_cbp1 = cbp_key; break;
-    case 4: if (g_cbp0 == cbp_key) return; g_cbp0 = cbp_key; break;
-    case 5: if (g_cbp1 == cbp_key) return; g_cbp1 = cbp_key; break;
-    default: return;
+    case 4: g_cbp0 = cbp_key; break;
+    case 5: g_cbp1 = cbp_key; break;
+    default: break;
     }
 #ifdef PS2_GPU
-    if (gpu_on()) gpu::load_clut(tex0, g_state.texclut);
+    if (gpu_on()) {
+        if (tex0 == g_last_clut_tex0 && g_state.texclut == g_last_clut_texclut) return;
+        g_last_clut_tex0 = tex0;
+        g_last_clut_texclut = g_state.texclut;
+        gpu::load_clut(tex0, g_state.texclut);
+    }
 #endif
     if (!cpu_raster()) return;
     const bool eight = psm == PSMT8 || psm == PSMT8H;
@@ -451,6 +460,8 @@ void init() {
 void render_reset() {
     g_cbp0 = ~0u;
     g_cbp1 = ~0u;
+    g_last_clut_tex0 = ~0ull;
+    g_last_clut_texclut = ~0ull;
 #ifdef PS2_GPU
     g_seen_ranges.clear();
     g_transfer_stale = false;
@@ -572,7 +583,13 @@ void write(std::uint32_t reg, std::uint64_t value) {
     case 0x18: case 0x19: s.ctx[reg - 0x18].xyoffset = value; break;
     case 0x1A: s.prmodecont = value; break;
     case 0x1B: s.prmode = value; break;
-    case 0x1C: s.texclut = value; g_cbp0 = ~0u; g_cbp1 = ~0u; break;
+    case 0x1C:
+        s.texclut = value;
+        g_cbp0 = ~0u;
+        g_cbp1 = ~0u;
+        g_last_clut_tex0 = ~0ull;
+        g_last_clut_texclut = ~0ull;
+        break;
     case 0x22: s.scanmsk = value; break;
     case 0x34: case 0x35: s.ctx[reg - 0x34].miptbp1 = value; break;
     case 0x36: case 0x37: s.ctx[reg - 0x36].miptbp2 = value; break;
@@ -581,6 +598,8 @@ void write(std::uint32_t reg, std::uint64_t value) {
     case 0x3F:
         g_cbp0 = ~0u;
         g_cbp1 = ~0u;
+        g_last_clut_tex0 = ~0ull;
+        g_last_clut_texclut = ~0ull;
 #ifdef PS2_GPU
         if (gpu_on()) gpu::texflush();
 #endif
@@ -609,7 +628,13 @@ void write(std::uint32_t reg, std::uint64_t value) {
 #ifdef PS2_GPU
         if (gpu_on()) {
             if ((value & 3u) == 0) gpu::image_begin(s);
-            else if ((value & 3u) == 2) { g_cbp0 = ~0u; g_cbp1 = ~0u; gpu::local_copy(s); }
+            else if ((value & 3u) == 2) {
+                g_cbp0 = ~0u;
+                g_cbp1 = ~0u;
+                g_last_clut_tex0 = ~0ull;
+                g_last_clut_texclut = ~0ull;
+                gpu::local_copy(s);
+            }
             else if ((value & 3u) == 1 && !cpu_raster()) download_source(s);
         }
 #endif
@@ -860,6 +885,10 @@ DisplayRegs display_regs() { return DisplayRegs{g_pmode, g_smode2, {g_dispfb[0],
 bool present() { return present(display_regs()); }
 
 bool present(const DisplayRegs &r) {
+    g_last_clut_tex0 = ~0ull;
+    g_last_clut_texclut = ~0ull;
+    g_cbp0 = ~0u;
+    g_cbp1 = ~0u;
 #ifdef PS2_GPU
     if (!gpu::has_surface()) return false;
     const int circuit = (r.pmode & 2u) ? 1 : (r.pmode & 1u) ? 0 : -1;
@@ -879,6 +908,10 @@ bool present(const DisplayRegs &r) {
 bool display(std::vector<std::uint32_t> &rgba, std::uint32_t &width, std::uint32_t &height) { return display(display_regs(), rgba, width, height); }
 
 bool display(const DisplayRegs &r, std::vector<std::uint32_t> &rgba, std::uint32_t &width, std::uint32_t &height) {
+    g_last_clut_tex0 = ~0ull;
+    g_last_clut_texclut = ~0ull;
+    g_cbp0 = ~0u;
+    g_cbp1 = ~0u;
     const int circuit = (r.pmode & 2u) ? 1 : (r.pmode & 1u) ? 0 : -1;
     if (circuit < 0) return false;
     const std::uint64_t fb = r.dispfb[circuit], disp = r.display[circuit];
@@ -929,6 +962,10 @@ bool display(const DisplayRegs &r, std::vector<std::uint32_t> &rgba, std::uint32
 bool copy_frame(std::vector<std::uint32_t> &rgba, std::uint32_t &width, std::uint32_t &height) { return copy_frame(display_regs(), rgba, width, height); }
 
 bool copy_frame(const DisplayRegs &r, std::vector<std::uint32_t> &rgba, std::uint32_t &width, std::uint32_t &height) {
+    g_last_clut_tex0 = ~0ull;
+    g_last_clut_texclut = ~0ull;
+    g_cbp0 = ~0u;
+    g_cbp1 = ~0u;
     static std::vector<std::uint32_t> previous;
     bool got = false;
 #ifdef PS2_GPU
