@@ -1,0 +1,889 @@
+[
+  {
+    "path": "DMY500M0.DAT",
+    "sector": 396,
+    "size": 524288000,
+    "available": false,
+    "start": 811008,
+    "end": 525099008
+  },
+  {
+    "path": "DMY500M1.DAT",
+    "sector": 256396,
+    "size": 524288000,
+    "available": false,
+    "start": 525099008,
+    "end": 1049387008
+  },
+  {
+    "path": "DMY500M2.DAT",
+    "sector": 512396,
+    "size": 524288000,
+    "available": false,
+    "start": 1049387008,
+    "end": 1573675008
+  },
+  {
+    "path": "SLUS_207.87",
+    "sector": 768396,
+    "size": 5652964,
+    "available": true,
+    "disk_size": 5652964,
+    "start": 1573675008,
+    "end": 1579327972
+  },
+  {
+    "path": "PACLIST.H",
+    "sector": 771157,
+    "size": 1307,
+    "available": true,
+    "disk_size": 1307,
+    "start": 1579329536,
+    "end": 1579330843
+  },
+  {
+    "path": "SYSTEM.CNF",
+    "sector": 771158,
+    "size": 57,
+    "available": true,
+    "disk_size": 57,
+    "start": 1579331584,
+    "end": 1579331641
+  },
+  {
+    "path": "PAC/_AUTO.PAC",
+    "sector": 771159,
+    "size": 64544,
+    "available": true,
+    "disk_size": 64544,
+    "start": 1579333632,
+    "end": 1579398176
+  },
+  {
+    "path": "PAC/_IRX272.PAC",
+    "sector": 771191,
+    "size": 280916,
+    "available": true,
+    "disk_size": 280916,
+    "start": 1579399168,
+    "end": 1579680084
+  },
+  {
+    "path": "PAC/_STARTUP.PAC",
+    "sector": 771329,
+    "size": 192772,
+    "available": true,
+    "disk_size": 192772,
+    "start": 1579681792,
+    "end": 1579874564
+  },
+  {
+    "path": "MODULE/IOPRP271.IMG",
+    "sector": 771424,
+    "size": 266817,
+    "available": true,
+    "disk_size": 266817,
+    "start": 1579876352,
+    "end": 1580143169
+  },
+  {
+    "path": "PAC/BG.PAC",
+    "sector": 771555,
+    "size": 53399552,
+    "available": true,
+    "disk_size": 53399552,
+    "start": 1580144640,
+    "end": 1633544192
+  },
+  {
+    "path": "PAC/CA.PAC",
+    "sector": 797629,
+    "size": 978944,
+    "available": true,
+    "disk_size": 978944,
+    "start": 1633544192,
+    "end": 1634523136
+  },
+  {
+    "path": "PAC/CH.PAC",
+    "sector": 798107,
+    "size": 41465856,
+    "available": true,
+    "disk_size": 41465856,
+    "start": 1634523136,
+    "end": 1675988992
+  },
+  {
+    "path": "PAC/CH2.PAC",
+    "sector": 818354,
+    "size": 52500480,
+    "available": true,
+    "disk_size": 52500480,
+    "start": 1675988992,
+    "end": 1728489472
+  },
+  {
+    "path": "PAC/EDIT.PAC",
+    "sector": 843989,
+    "size": 1054720,
+    "available": true,
+    "disk_size": 1054720,
+    "start": 1728489472,
+    "end": 1729544192
+  },
+  {
+    "path": "PAC/ENTR2D.PAC",
+    "sector": 844504,
+    "size": 1914880,
+    "available": true,
+    "disk_size": 1914880,
+    "start": 1729544192,
+    "end": 1731459072
+  },
+  {
+    "path": "PAC/EVTTKME.PAC",
+    "sector": 845439,
+    "size": 42639360,
+    "available": true,
+    "disk_size": 42639360,
+    "start": 1731459072,
+    "end": 1774098432
+  },
+  {
+    "path": "PAC/EVT.PAC",
+    "sector": 866259,
+    "size": 40200192,
+    "available": true,
+    "disk_size": 40200192,
+    "start": 1774098432,
+    "end": 1814298624
+  },
+  {
+    "path": "PAC/EVTDORA.PAC",
+    "sector": 885888,
+    "size": 5347328,
+    "available": true,
+    "disk_size": 5347328,
+    "start": 1814298624,
+    "end": 1819645952
+  },
+  {
+    "path": "PAC/EVTENT.PAC",
+    "sector": 888499,
+    "size": 18462720,
+    "available": true,
+    "disk_size": 18462720,
+    "start": 1819645952,
+    "end": 1838108672
+  },
+  {
+    "path": "PAC/GAME2D.PAC",
+    "sector": 897514,
+    "size": 321536,
+    "available": true,
+    "disk_size": 321536,
+    "start": 1838108672,
+    "end": 1838430208
+  },
+  {
+    "path": "PAC/GM.PAC",
+    "sector": 897671,
+    "size": 3444736,
+    "available": true,
+    "disk_size": 3444736,
+    "start": 1838430208,
+    "end": 1841874944
+  },
+  {
+    "path": "PAC/HALO.PAC",
+    "sector": 899353,
+    "size": 8947712,
+    "available": true,
+    "disk_size": 8947712,
+    "start": 1841874944,
+    "end": 1850822656
+  },
+  {
+    "path": "PAC/M.PAC",
+    "sector": 903722,
+    "size": 16037888,
+    "available": true,
+    "disk_size": 16037888,
+    "start": 1850822656,
+    "end": 1866860544
+  },
+  {
+    "path": "PAC/MENU.PAC",
+    "sector": 911553,
+    "size": 5537792,
+    "available": true,
+    "disk_size": 5537792,
+    "start": 1866860544,
+    "end": 1872398336
+  },
+  {
+    "path": "PAC/MISC.PAC",
+    "sector": 914257,
+    "size": 18104320,
+    "available": true,
+    "disk_size": 18104320,
+    "start": 1872398336,
+    "end": 1890502656
+  },
+  {
+    "path": "PAC/MOVES.PAC",
+    "sector": 923097,
+    "size": 14786560,
+    "available": true,
+    "disk_size": 14786560,
+    "start": 1890502656,
+    "end": 1905289216
+  },
+  {
+    "path": "PAC/MOVIE.PAC",
+    "sector": 930317,
+    "size": 43841536,
+    "available": true,
+    "disk_size": 43841536,
+    "start": 1905289216,
+    "end": 1949130752
+  },
+  {
+    "path": "PAC/SOUND.PAC",
+    "sector": 951724,
+    "size": 9078784,
+    "available": true,
+    "disk_size": 9078784,
+    "start": 1949130752,
+    "end": 1958209536
+  },
+  {
+    "path": "PAC/STABLE.PAC",
+    "sector": 956157,
+    "size": 20480,
+    "available": true,
+    "disk_size": 20480,
+    "start": 1958209536,
+    "end": 1958230016
+  },
+  {
+    "path": "ED1/ED10.PAC",
+    "sector": 956167,
+    "size": 1093632,
+    "available": true,
+    "disk_size": 1093632,
+    "start": 1958230016,
+    "end": 1959323648
+  },
+  {
+    "path": "ED1/ED11.PAC",
+    "sector": 956701,
+    "size": 1095680,
+    "available": true,
+    "disk_size": 1095680,
+    "start": 1959323648,
+    "end": 1960419328
+  },
+  {
+    "path": "ED1/ED12.PAC",
+    "sector": 957236,
+    "size": 526336,
+    "available": true,
+    "disk_size": 526336,
+    "start": 1960419328,
+    "end": 1960945664
+  },
+  {
+    "path": "ED1/ED13.PAC",
+    "sector": 957493,
+    "size": 1540096,
+    "available": true,
+    "disk_size": 1540096,
+    "start": 1960945664,
+    "end": 1962485760
+  },
+  {
+    "path": "ED1/ED14.PAC",
+    "sector": 958245,
+    "size": 8271872,
+    "available": true,
+    "disk_size": 8271872,
+    "start": 1962485760,
+    "end": 1970757632
+  },
+  {
+    "path": "ED1/ED15.PAC",
+    "sector": 962284,
+    "size": 14829568,
+    "available": true,
+    "disk_size": 14829568,
+    "start": 1970757632,
+    "end": 1985587200
+  },
+  {
+    "path": "ED1/ED16.PAC",
+    "sector": 969525,
+    "size": 11859968,
+    "available": true,
+    "disk_size": 11859968,
+    "start": 1985587200,
+    "end": 1997447168
+  },
+  {
+    "path": "ED1/ED17.PAC",
+    "sector": 975316,
+    "size": 8208384,
+    "available": true,
+    "disk_size": 8208384,
+    "start": 1997447168,
+    "end": 2005655552
+  },
+  {
+    "path": "ED1/ED18.PAC",
+    "sector": 979324,
+    "size": 14858240,
+    "available": true,
+    "disk_size": 14858240,
+    "start": 2005655552,
+    "end": 2020513792
+  },
+  {
+    "path": "ED1/ED19.PAC",
+    "sector": 986579,
+    "size": 11315200,
+    "available": true,
+    "disk_size": 11315200,
+    "start": 2020513792,
+    "end": 2031828992
+  },
+  {
+    "path": "ED2/ED20.PAC",
+    "sector": 992104,
+    "size": 2322432,
+    "available": true,
+    "disk_size": 2322432,
+    "start": 2031828992,
+    "end": 2034151424
+  },
+  {
+    "path": "ED2/ED21.PAC",
+    "sector": 993238,
+    "size": 1529856,
+    "available": true,
+    "disk_size": 1529856,
+    "start": 2034151424,
+    "end": 2035681280
+  },
+  {
+    "path": "ED2/ED22.PAC",
+    "sector": 993985,
+    "size": 1456128,
+    "available": true,
+    "disk_size": 1456128,
+    "start": 2035681280,
+    "end": 2037137408
+  },
+  {
+    "path": "ED2/ED23.PAC",
+    "sector": 994696,
+    "size": 5322752,
+    "available": true,
+    "disk_size": 5322752,
+    "start": 2037137408,
+    "end": 2042460160
+  },
+  {
+    "path": "ED2/ED24.PAC",
+    "sector": 997295,
+    "size": 3137536,
+    "available": true,
+    "disk_size": 3137536,
+    "start": 2042460160,
+    "end": 2045597696
+  },
+  {
+    "path": "ED2/ED25.PAC",
+    "sector": 998827,
+    "size": 4515840,
+    "available": true,
+    "disk_size": 4515840,
+    "start": 2045597696,
+    "end": 2050113536
+  },
+  {
+    "path": "ED2/ED26.PAC",
+    "sector": 1001032,
+    "size": 5711872,
+    "available": true,
+    "disk_size": 5711872,
+    "start": 2050113536,
+    "end": 2055825408
+  },
+  {
+    "path": "ED2/ED27.PAC",
+    "sector": 1003821,
+    "size": 16412672,
+    "available": true,
+    "disk_size": 16412672,
+    "start": 2055825408,
+    "end": 2072238080
+  },
+  {
+    "path": "ED2/ED28.PAC",
+    "sector": 1011835,
+    "size": 5945344,
+    "available": true,
+    "disk_size": 5945344,
+    "start": 2072238080,
+    "end": 2078183424
+  },
+  {
+    "path": "ED2/ED29.PAC",
+    "sector": 1014738,
+    "size": 6860800,
+    "available": true,
+    "disk_size": 6860800,
+    "start": 2078183424,
+    "end": 2085044224
+  },
+  {
+    "path": "ED3/ED30.PAC",
+    "sector": 1018088,
+    "size": 7555072,
+    "available": true,
+    "disk_size": 7555072,
+    "start": 2085044224,
+    "end": 2092599296
+  },
+  {
+    "path": "ED3/ED31.PAC",
+    "sector": 1021777,
+    "size": 2742272,
+    "available": true,
+    "disk_size": 2742272,
+    "start": 2092599296,
+    "end": 2095341568
+  },
+  {
+    "path": "ED3/ED32.PAC",
+    "sector": 1023116,
+    "size": 3362816,
+    "available": true,
+    "disk_size": 3362816,
+    "start": 2095341568,
+    "end": 2098704384
+  },
+  {
+    "path": "ED3/ED33.PAC",
+    "sector": 1024758,
+    "size": 5476352,
+    "available": true,
+    "disk_size": 5476352,
+    "start": 2098704384,
+    "end": 2104180736
+  },
+  {
+    "path": "ED3/ED34.PAC",
+    "sector": 1027432,
+    "size": 2547712,
+    "available": true,
+    "disk_size": 2547712,
+    "start": 2104180736,
+    "end": 2106728448
+  },
+  {
+    "path": "ED3/ED35.PAC",
+    "sector": 1028676,
+    "size": 204800,
+    "available": true,
+    "disk_size": 204800,
+    "start": 2106728448,
+    "end": 2106933248
+  },
+  {
+    "path": "ED3/ED36.PAC",
+    "sector": 1028776,
+    "size": 825344,
+    "available": true,
+    "disk_size": 825344,
+    "start": 2106933248,
+    "end": 2107758592
+  },
+  {
+    "path": "ED3/ED37.PAC",
+    "sector": 1029179,
+    "size": 176128,
+    "available": true,
+    "disk_size": 176128,
+    "start": 2107758592,
+    "end": 2107934720
+  },
+  {
+    "path": "ED3/ED38.PAC",
+    "sector": 1029265,
+    "size": 755712,
+    "available": true,
+    "disk_size": 755712,
+    "start": 2107934720,
+    "end": 2108690432
+  },
+  {
+    "path": "ED3/ED39.PAC",
+    "sector": 1029634,
+    "size": 837632,
+    "available": true,
+    "disk_size": 837632,
+    "start": 2108690432,
+    "end": 2109528064
+  },
+  {
+    "path": "ED4/ED40.PAC",
+    "sector": 1030043,
+    "size": 38912,
+    "available": true,
+    "disk_size": 38912,
+    "start": 2109528064,
+    "end": 2109566976
+  },
+  {
+    "path": "ED4/ED41.PAC",
+    "sector": 1030062,
+    "size": 108544,
+    "available": true,
+    "disk_size": 108544,
+    "start": 2109566976,
+    "end": 2109675520
+  },
+  {
+    "path": "ED4/ED42.PAC",
+    "sector": 1030115,
+    "size": 180224,
+    "available": true,
+    "disk_size": 180224,
+    "start": 2109675520,
+    "end": 2109855744
+  },
+  {
+    "path": "ED4/ED43.PAC",
+    "sector": 1030203,
+    "size": 34816,
+    "available": true,
+    "disk_size": 34816,
+    "start": 2109855744,
+    "end": 2109890560
+  },
+  {
+    "path": "ED4/ED44.PAC",
+    "sector": 1030220,
+    "size": 114688,
+    "available": true,
+    "disk_size": 114688,
+    "start": 2109890560,
+    "end": 2110005248
+  },
+  {
+    "path": "ED4/ED45.PAC",
+    "sector": 1030276,
+    "size": 129024,
+    "available": true,
+    "disk_size": 129024,
+    "start": 2110005248,
+    "end": 2110134272
+  },
+  {
+    "path": "ED4/ED46.PAC",
+    "sector": 1030339,
+    "size": 212992,
+    "available": true,
+    "disk_size": 212992,
+    "start": 2110134272,
+    "end": 2110347264
+  },
+  {
+    "path": "ED4/ED47.PAC",
+    "sector": 1030443,
+    "size": 540672,
+    "available": true,
+    "disk_size": 540672,
+    "start": 2110347264,
+    "end": 2110887936
+  },
+  {
+    "path": "ED4/ED48.PAC",
+    "sector": 1030707,
+    "size": 399360,
+    "available": true,
+    "disk_size": 399360,
+    "start": 2110887936,
+    "end": 2111287296
+  },
+  {
+    "path": "ED4/ED49.PAC",
+    "sector": 1030902,
+    "size": 208896,
+    "available": true,
+    "disk_size": 208896,
+    "start": 2111287296,
+    "end": 2111496192
+  },
+  {
+    "path": "ED5/ED50.PAC",
+    "sector": 1031004,
+    "size": 96256,
+    "available": true,
+    "disk_size": 96256,
+    "start": 2111496192,
+    "end": 2111592448
+  },
+  {
+    "path": "ED5/ED51.PAC",
+    "sector": 1031051,
+    "size": 999424,
+    "available": true,
+    "disk_size": 999424,
+    "start": 2111592448,
+    "end": 2112591872
+  },
+  {
+    "path": "ED5/ED52.PAC",
+    "sector": 1031539,
+    "size": 507904,
+    "available": true,
+    "disk_size": 507904,
+    "start": 2112591872,
+    "end": 2113099776
+  },
+  {
+    "path": "ED5/ED53.PAC",
+    "sector": 1031787,
+    "size": 3999744,
+    "available": true,
+    "disk_size": 3999744,
+    "start": 2113099776,
+    "end": 2117099520
+  },
+  {
+    "path": "ED5/ED54.PAC",
+    "sector": 1033740,
+    "size": 802816,
+    "available": true,
+    "disk_size": 802816,
+    "start": 2117099520,
+    "end": 2117902336
+  },
+  {
+    "path": "ED5/ED55.PAC",
+    "sector": 1034132,
+    "size": 419840,
+    "available": true,
+    "disk_size": 419840,
+    "start": 2117902336,
+    "end": 2118322176
+  },
+  {
+    "path": "ED5/ED56.PAC",
+    "sector": 1034337,
+    "size": 309248,
+    "available": true,
+    "disk_size": 309248,
+    "start": 2118322176,
+    "end": 2118631424
+  },
+  {
+    "path": "ED0/ED02.PAC",
+    "sector": 1034488,
+    "size": 1894400,
+    "available": true,
+    "disk_size": 1894400,
+    "start": 2118631424,
+    "end": 2120525824
+  },
+  {
+    "path": "ED0/ED03.PAC",
+    "sector": 1035413,
+    "size": 3811328,
+    "available": true,
+    "disk_size": 3811328,
+    "start": 2120525824,
+    "end": 2124337152
+  },
+  {
+    "path": "ED0/ED04.PAC",
+    "sector": 1037274,
+    "size": 978944,
+    "available": true,
+    "disk_size": 978944,
+    "start": 2124337152,
+    "end": 2125316096
+  },
+  {
+    "path": "ED0/ED05.PAC",
+    "sector": 1037752,
+    "size": 2691072,
+    "available": true,
+    "disk_size": 2691072,
+    "start": 2125316096,
+    "end": 2128007168
+  },
+  {
+    "path": "ED0/ED06.PAC",
+    "sector": 1039066,
+    "size": 344064,
+    "available": true,
+    "disk_size": 344064,
+    "start": 2128007168,
+    "end": 2128351232
+  },
+  {
+    "path": "ED0/ED07.PAC",
+    "sector": 1039234,
+    "size": 208896,
+    "available": true,
+    "disk_size": 208896,
+    "start": 2128351232,
+    "end": 2128560128
+  },
+  {
+    "path": "ED0/ED08.PAC",
+    "sector": 1039336,
+    "size": 438272,
+    "available": true,
+    "disk_size": 438272,
+    "start": 2128560128,
+    "end": 2128998400
+  },
+  {
+    "path": "ED0/ED09.PAC",
+    "sector": 1039550,
+    "size": 159744,
+    "available": true,
+    "disk_size": 159744,
+    "start": 2128998400,
+    "end": 2129158144
+  },
+  {
+    "path": "BGM/BGM000.AFS",
+    "sector": 1039628,
+    "size": 11689984,
+    "available": true,
+    "disk_size": 11689984,
+    "start": 2129158144,
+    "end": 2140848128
+  },
+  {
+    "path": "BGM/BGM001.AFS",
+    "sector": 1045336,
+    "size": 113993728,
+    "available": false,
+    "start": 2140848128,
+    "end": 2254841856
+  },
+  {
+    "path": "BGM/BGM002.AFS",
+    "sector": 1100997,
+    "size": 123600896,
+    "available": false,
+    "start": 2254841856,
+    "end": 2378442752
+  },
+  {
+    "path": "BGM/BGM003.AFS",
+    "sector": 1161349,
+    "size": 78016512,
+    "available": false,
+    "start": 2378442752,
+    "end": 2456459264
+  },
+  {
+    "path": "BGM/BGM004.AFS",
+    "sector": 1199443,
+    "size": 40353792,
+    "available": false,
+    "start": 2456459264,
+    "end": 2496813056
+  },
+  {
+    "path": "BGM/PBP000.AFS",
+    "sector": 1219147,
+    "size": 2414592,
+    "available": true,
+    "disk_size": 2414592,
+    "start": 2496813056,
+    "end": 2499227648
+  },
+  {
+    "path": "MOVIE/NMV003.AFS",
+    "sector": 1220326,
+    "size": 197412864,
+    "available": false,
+    "start": 2499227648,
+    "end": 2696640512
+  },
+  {
+    "path": "MOVIE/NMV000.AFS",
+    "sector": 1316719,
+    "size": 433102848,
+    "available": false,
+    "start": 2696640512,
+    "end": 3129743360
+  },
+  {
+    "path": "MOVIE/NMV001.AFS",
+    "sector": 1528195,
+    "size": 343789568,
+    "available": false,
+    "start": 3129743360,
+    "end": 3473532928
+  },
+  {
+    "path": "MOVIE/NMV002.AFS",
+    "sector": 1696061,
+    "size": 313739264,
+    "available": false,
+    "start": 3473532928,
+    "end": 3787272192
+  },
+  {
+    "path": "BGM/CHEER.AFS",
+    "sector": 1849254,
+    "size": 17442816,
+    "available": true,
+    "disk_size": 17442816,
+    "start": 3787272192,
+    "end": 3804715008
+  },
+  {
+    "path": "BGM/BG_ENV.AFS",
+    "sector": 1857771,
+    "size": 20424704,
+    "available": true,
+    "disk_size": 20424704,
+    "start": 3804715008,
+    "end": 3825139712
+  },
+  {
+    "path": "MOVIE/LOGOS.AFS",
+    "sector": 1867744,
+    "size": 82008064,
+    "available": true,
+    "disk_size": 82008064,
+    "start": 3825139712,
+    "end": 3907147776
+  },
+  {
+    "path": "DMY10M.DAT",
+    "sector": 1907787,
+    "size": 10485760,
+    "available": false,
+    "start": 3907147776,
+    "end": 3917633536
+  },
+  {
+    "path": "MOVIE/CREDITS.SFD",
+    "sector": 1912907,
+    "size": 607565824,
+    "available": false,
+    "start": 3917633536,
+    "end": 4525199360
+  }
+]
