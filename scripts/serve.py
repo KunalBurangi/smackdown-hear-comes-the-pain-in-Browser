@@ -16,6 +16,11 @@ if '--record' in sys.argv:
     at = sys.argv.index('--record')
     RECORD = os.path.abspath(sys.argv[at + 1])
     del sys.argv[at:at + 2]
+
+VERBOSE = '--verbose' in sys.argv
+if VERBOSE:
+    sys.argv.remove('--verbose')
+
 BUILD = os.path.abspath(sys.argv[1])
 DISC = os.path.abspath(sys.argv[2]) if len(sys.argv) > 2 and os.path.exists(sys.argv[2]) and not sys.argv[2].isdigit() else None
 DISC_FD = os.open(DISC, os.O_RDONLY) if DISC and os.path.isfile(DISC) else None
@@ -30,6 +35,20 @@ TYPES = {
     '.pac': 'application/octet-stream',
     '.afs': 'application/octet-stream',
 }
+
+OPEN_FDS = {}
+if DISC and DISC_FD is not None:
+    OPEN_FDS[DISC] = DISC_FD
+
+def get_fd(path):
+    fd = OPEN_FDS.get(path)
+    if fd is None:
+        try:
+            fd = os.open(path, os.O_RDONLY)
+            OPEN_FDS[path] = fd
+        except Exception:
+            return None
+    return fd
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -100,11 +119,14 @@ class Handler(http.server.BaseHTTPRequestHandler):
         else:
             self.send_response(200)
         self.headers_for(path, end - start + 1)
-        if path == DISC and DISC_FD is not None:
+
+        fd = get_fd(path)
+        if fd is not None:
             left = end - start + 1
-            chunk = os.pread(DISC_FD, left, start)
+            chunk = os.pread(fd, left, start)
             self.wfile.write(chunk)
             return
+
         with open(path, 'rb') as f:
             f.seek(start)
             left = end - start + 1
@@ -133,7 +155,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
         self.end_headers()
 
     def log_message(self, fmt, *args):
-        print(self.path, self.headers.get('Range', ''), flush=True)
+        if VERBOSE:
+            print(self.path, self.headers.get('Range', ''), flush=True)
 
 
 print('serving %s and %s on http://127.0.0.1:%d/' % (BUILD, DISC or '(virtual disc)', PORT))

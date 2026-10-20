@@ -625,7 +625,11 @@ var Module = {
       fetch(Module.discUrl, { method: 'HEAD' }).catch(() => null),
       chooseGpu().catch((e) => 'GPU check failed: ' + e)
     ]).then(([sectors, meta, r, gpu]) => {
-      if (sectors && meta) {
+      const hasIso = r && Number(r.headers.get('content-length')) > 100000000;
+      if (hasIso && !params.has('virtual')) {
+        Module.discSize = Number(r.headers.get('content-length'));
+        statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
+      } else if (sectors && meta) {
         Module.discIndex = sectors;
         Module.discMeta = new Uint8Array(meta);
         Module.discSize = 4525228032;
@@ -644,13 +648,7 @@ var Module = {
     });
   }],
   fetchDiscChunk: (url, offset, size, out, finish) => {
-    const rawFinish = finish;
-    finish = (val) => {
-      console.log('[disc] chunk FINISHED offset=' + offset + ' val=' + val);
-      rawFinish(val);
-    };
     if (Module.discIndex) {
-      console.log('[disc] chunk request offset=' + offset + ' (' + (offset / 1048576).toFixed(1) + ' MB)');
       const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
       getHeap().fill(0, out, out + size);
       const end = offset + size;
