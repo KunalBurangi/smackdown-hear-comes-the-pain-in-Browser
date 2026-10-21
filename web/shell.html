@@ -134,6 +134,7 @@ if (window.crossOriginIsolated || location.hostname === '127.0.0.1' || location.
   <button id="export-card" type="button" title="Download the memory card in slot 1 as a .ps2 file">Export card</button>
   <button id="import-card" type="button" title="Put a .ps2 memory card file in slot 1">Import card</button>
   <input id="import-file" type="file" accept=".ps2" hidden>
+  <button id="preload-btn" type="button" title="Preload moves, sounds, and outro animations into memory">Match Assets: 0%</button>
   <button id="fullscreen" type="button" title="Fullscreen (F or double click)">Fullscreen</button></div>
 <button id="exit-fullscreen" type="button">Exit fullscreen</button>
 <dialog id="controls-help" aria-labelledby="controls-help-title">
@@ -144,7 +145,22 @@ if (window.crossOriginIsolated || location.hostname === '127.0.0.1' || location.
   <p id="controller-status" aria-live="polite">Controller: not detected</p>
   <button id="close-controls-help" type="button">Close</button>
 </dialog>
-<div id="overlay"><div id="panel"><p id="help" hidden></p><button id="start" disabled>Loading…</button></div></div>
+<div id="overlay">
+  <div id="panel">
+    <p id="help" hidden></p>
+    <button id="start" disabled>Loading…</button>
+    <div id="preload-box" style="width: 100%; min-width: 280px; max-width: 380px; background: rgba(20, 26, 37, 0.9); border: 1px solid #34405a; border-radius: 8px; padding: 12px 16px; text-align: left; font-size: 12px; color: #ccd6e0; box-shadow: 0 4px 12px rgba(0,0,0,0.5);">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span style="font-weight: 600; color: #fff; font-size: 13px;">Match Assets & Cutscenes</span>
+        <span id="preload-badge" style="font-size: 11px; padding: 2px 8px; border-radius: 4px; background: #2a3a55; color: #9ad; font-weight: 500;">Checking cache…</span>
+      </div>
+      <div style="width: 100%; height: 6px; background: #1a2230; border-radius: 3px; overflow: hidden; margin-bottom: 8px;">
+        <div id="preload-bar" style="width: 0%; height: 100%; background: #4a77d4; transition: width 0.3s ease;"></div>
+      </div>
+      <div id="preload-detail" style="font-size: 11px; color: #8a99ad; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Initializing preloader…</div>
+    </div>
+  </div>
+</div>
 <script>
 const statusEl = document.getElementById('status');
 const CARD_DIR = '/memcard', CARD_FILE = '/memcard/Mcd001.ps2', CARD_BYTES = 8650752;
@@ -615,7 +631,93 @@ const countShown = () => {
   fresh = false;
   requestAnimationFrame(countShown);
 };
-requestAnimationFrame(countShown);
+const CACHE_NAME = 'hctp-disc-assets-v2';
+
+async function getCachedFile(path) {
+  if (typeof caches === 'undefined') return null;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const resp = await cache.match('disc/' + path);
+    if (resp && resp.ok) {
+      const buf = await resp.arrayBuffer();
+      return new Uint8Array(buf);
+    }
+  } catch (e) {
+    console.warn('CacheStorage read failed for ' + path, e);
+  }
+  return null;
+}
+
+async function putCachedFile(path, bytes) {
+  if (typeof caches === 'undefined') return;
+  try {
+    const cache = await caches.open(CACHE_NAME);
+    const resp = new Response(bytes, {
+      headers: {
+        'Content-Type': 'application/octet-stream',
+        'Content-Length': bytes.length.toString()
+      }
+    });
+    await cache.put('disc/' + path, resp);
+  } catch (e) {
+    console.warn('CacheStorage write failed for ' + path, e);
+  }
+}
+
+const MATCH_PRELOAD_FILES = [
+  { path: 'PAC/GAME2D.PAC', label: '2D HUD & Sprites' },
+  { path: 'PAC/CA.PAC', label: 'Crowd Animations' },
+  { path: 'PAC/GM.PAC', label: 'Match Engine' },
+  { path: 'PAC/MOVES.PAC', label: 'Smack & Attack Moves' },
+  { path: 'PAC/SOUND.PAC', label: 'Impact Audio & Commentary' },
+  { path: 'PAC/EVTENT.PAC', label: 'Victory & Outro Cutscenes' },
+  { path: 'PAC/EVTDORA.PAC', label: 'Cutscene Cameras' },
+  { path: 'BGM/CHEER.AFS', label: 'Crowd Audio Reactions' }
+];
+
+let preloadLoaded = 0;
+function updatePreloadUI(currentLabel) {
+  const percent = Math.round((preloadLoaded / MATCH_PRELOAD_FILES.length) * 100);
+  const bar = document.getElementById('preload-bar');
+  const badge = document.getElementById('preload-badge');
+  const detail = document.getElementById('preload-detail');
+  const btn = document.getElementById('preload-btn');
+  if (bar) bar.style.width = percent + '%';
+  if (preloadLoaded >= MATCH_PRELOAD_FILES.length) {
+    if (bar) bar.style.background = '#38a169';
+    if (badge) {
+      badge.textContent = '100% Ready (Cached)';
+      badge.style.background = '#22543d';
+      badge.style.color = '#9ae6b4';
+    }
+    if (detail) detail.textContent = 'All moves & cutscenes cached in local memory (0ms latency).';
+    if (btn) {
+      btn.textContent = 'Match Assets: Ready';
+      btn.style.color = '#9ae6b4';
+    }
+  } else {
+    if (badge) badge.textContent = `${preloadLoaded}/${MATCH_PRELOAD_FILES.length} (${percent}%)`;
+    if (detail && currentLabel) detail.textContent = `Caching ${currentLabel}…`;
+    if (btn) btn.textContent = `Preloading (${percent}%)`;
+  }
+}
+
+async function startMatchPreload() {
+  updatePreloadUI('Checking local cache');
+  for (const item of MATCH_PRELOAD_FILES) {
+    updatePreloadUI(item.label);
+    try {
+      await Module.loadDiscFile(item.path);
+      ++preloadLoaded;
+      updatePreloadUI();
+    } catch (e) {
+      console.warn('Preload skipped for ' + item.path, e);
+    }
+    await new Promise((r) => setTimeout(r, 60));
+  }
+  updatePreloadUI();
+}
+
 var Module = {
   canvas,
   arguments: ['/game/core.elf'].concat(params.has('arg') ? ['--arg', params.get('arg')] : [], params.getAll('press').flatMap((p) => p.split(',').flatMap((x) => ['--press', x]))),
@@ -676,21 +778,7 @@ var Module = {
         Module.discSize = r ? (Number(r.headers.get('content-length')) || 0) : 0;
         statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
       }
-      const warmupFiles = [
-        'PAC/GAME2D.PAC',
-        'PAC/CA.PAC',
-        'PAC/GM.PAC',
-        'PAC/MOVES.PAC',
-        'PAC/SOUND.PAC',
-        'PAC/EVTENT.PAC',
-        'PAC/EVTDORA.PAC',
-        'BGM/CHEER.AFS'
-      ];
-      let delay = 100;
-      for (const file of warmupFiles) {
-        setTimeout(() => Module.loadDiscFile(file).catch(() => {}), delay);
-        delay += 500;
-      }
+      startMatchPreload();
       Module.gpuInfo = gpu;
       if (Module.gpuHelp && !missing.length) {
         const help = document.getElementById('help');
@@ -711,20 +799,25 @@ var Module = {
     if (Module.discFilePromises.has(path)) {
       return Module.discFilePromises.get(path);
     }
-    const p = fetch('disc/' + path)
-      .then((res) => {
-        if (!res.ok) throw new Error('status ' + res.status + ' for ' + path);
-        return res.arrayBuffer().then((buf) => {
-          const bytes = new Uint8Array(buf);
-          Module.discFileCache.set(path, bytes);
-          Module.discFilePromises.delete(path);
-          return bytes;
-        });
-      })
-      .catch((e) => {
+    const p = (async () => {
+      const cached = await getCachedFile(path);
+      if (cached && cached.length > 0) {
+        Module.discFileCache.set(path, cached);
         Module.discFilePromises.delete(path);
-        throw e;
-      });
+        return cached;
+      }
+      const res = await fetch('disc/' + path);
+      if (!res.ok) throw new Error('status ' + res.status + ' for ' + path);
+      const buf = await res.arrayBuffer();
+      const bytes = new Uint8Array(buf);
+      Module.discFileCache.set(path, bytes);
+      Module.discFilePromises.delete(path);
+      putCachedFile(path, bytes);
+      return bytes;
+    })().catch((e) => {
+      Module.discFilePromises.delete(path);
+      throw e;
+    });
     Module.discFilePromises.set(path, p);
     return p;
   },
@@ -871,6 +964,13 @@ document.getElementById('start').addEventListener('click', async () => {
   Module.running = true;
   Module.callMain(Module.arguments);
 });
+const preloadBtn = document.getElementById('preload-btn');
+if (preloadBtn) {
+  preloadBtn.addEventListener('click', () => {
+    note(`Match Assets: ${preloadLoaded}/${MATCH_PRELOAD_FILES.length} cached (${Math.round(preloadLoaded / MATCH_PRELOAD_FILES.length * 100)}%)`);
+    startMatchPreload();
+  });
+}
 </script>
 {{{ SCRIPT }}}
 </body>
