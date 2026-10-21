@@ -170,7 +170,7 @@ void remember(const DownloadKey &key, const std::uint8_t *data, std::size_t byte
     std::lock_guard lock(g_cache_mutex);
     auto it = std::find_if(g_download_cache.begin(), g_download_cache.end(), [&](const CachedDownload &c) { return c.key == key; });
     if (it == g_download_cache.end()) {
-        if (g_download_cache.size() >= 16)
+        if (g_download_cache.size() >= 256)
             g_download_cache.erase(std::min_element(g_download_cache.begin(), g_download_cache.end(),
                                                     [](const CachedDownload &a, const CachedDownload &b) { return a.used < b.used; }));
         it = g_download_cache.insert(g_download_cache.end(), CachedDownload{key, {}, 0});
@@ -201,20 +201,29 @@ void download_source(const State &s) {
     ++g_transfer_serial;
     g_transfer_stale = false;
     if (!w || !h || x + w > 2048 || y + h > 2048 || end > kMemorySize) {
-        gpu::download(g_memory);
+        if (queue::active()) {
+            gpu::download_async(g_memory, 0, kMemorySize, g_transfer_serial);
+            g_transfer_stale = true;
+            g_stale_first = 0;
+            g_stale_bytes = kMemorySize;
+        } else {
+            gpu::download(g_memory);
+        }
         return;
     }
     const std::pair<std::uint32_t, std::uint32_t> range{first, end - first};
-    if (queue::active() && std::find(g_seen_ranges.begin(), g_seen_ranges.end(), range) != g_seen_ranges.end()) {
+    if (queue::active()) {
         gpu::download_async(g_memory, first, end - first, g_transfer_serial);
         g_transfer_stale = true;
         g_stale_first = first;
         g_stale_bytes = end - first;
+        if (std::find(g_seen_ranges.begin(), g_seen_ranges.end(), range) == g_seen_ranges.end()) {
+            g_seen_ranges.push_back(range);
+            if (g_seen_ranges.size() > 64) g_seen_ranges.erase(g_seen_ranges.begin());
+        }
         return;
     }
     gpu::download(g_memory, first, end - first);
-    g_seen_ranges.push_back(range);
-    if (g_seen_ranges.size() > 8) g_seen_ranges.erase(g_seen_ranges.begin());
 }
 #endif
 
@@ -1057,7 +1066,6 @@ Rendered render_pending(const std::function<void(const DisplayRegs &)> &on_prese
             std::vector<std::uint8_t> fresh(static_cast<std::size_t>(h.arg0) * 16);
             render_read_image(fresh.data(), h.arg0);
             if (key.buf == g_state.bitbltbuf && key.pos == g_state.trxpos && key.reg == g_state.trxreg) remember(key, fresh.data(), fresh.size());
-            else forget(key);
             break;
         }
         default: break;

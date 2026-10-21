@@ -383,6 +383,7 @@ void *emulate(void *data) {
             "PAC/GAME2D.PAC",
             "PAC/CA.PAC",
             "PAC/GM.PAC",
+            "PAC/MISC.PAC",
             "PAC/MOVES.PAC",
             "PAC/SOUND.PAC",
             "PAC/EVTENT.PAC",
@@ -392,7 +393,7 @@ void *emulate(void *data) {
         for (const char *name : critical_files) {
             if (const auto entry = ps2::disc::find(name)) {
                 const std::uint32_t sectors = (entry->size + ps2::disc::kSector - 1) / ps2::disc::kSector;
-                ps2::disc::ready(entry->sector, std::min<std::uint32_t>(sectors, 4096));
+                ps2::disc::ready(entry->sector, sectors);
             }
         }
     }
