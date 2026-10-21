@@ -344,16 +344,12 @@ void load_clut(int context, std::uint64_t tex0) {
             g_state.clut[slot] = c;
             continue;
         }
-        if (eight) {
-            const std::uint32_t j = (i & ~0x18u) | ((i & 0x08u) << 1) | ((i & 0x10u) >> 1);
-            x = j & 15u;
-            y = j >> 4;
-        } else {
-            x = i & 7u;
-            y = i >> 3;
-        }
+        const std::uint32_t idx = eight ? i : (((csa & 15u) * 16u + i) & 255u);
+        const std::uint32_t j = (idx & ~0x18u) | ((idx & 0x08u) << 1) | ((idx & 0x10u) >> 1);
+        x = j & 15u;
+        y = j >> 4;
         const std::uint32_t c = read_pixel(cpsm == 0 ? PSMCT32 : cpsm, cbp, 1, x, y);
-        const std::uint32_t slot = eight ? i : ((csa & 15u) * 16u + i) & 255u;
+        const std::uint32_t slot = idx;
         g_state.clut[slot] = c;
     }
 }

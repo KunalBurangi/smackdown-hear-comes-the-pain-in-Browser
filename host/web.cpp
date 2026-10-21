@@ -387,8 +387,17 @@ void *emulate(void *data) {
             "PAC/SOUND.PAC",
             "PAC/M.PAC",
             "PAC/MISC.PAC",
+            "PAC/HALO.PAC",
+            "PAC/GAME2D.PAC",
+            "PAC/CA.PAC",
+            "PAC/GM.PAC",
+            "PAC/EVT.PAC",
+            "PAC/EVTENT.PAC",
+            "PAC/EVTDORA.PAC",
             "BGM/PBP000.AFS",
-            "BGM/CHEER.AFS"
+            "BGM/CHEER.AFS",
+            "BGM/BG_ENV.AFS",
+            "BGM/BGM000.AFS"
         };
         for (const char *name : critical_files) {
             if (const auto entry = ps2::disc::find(name)) {

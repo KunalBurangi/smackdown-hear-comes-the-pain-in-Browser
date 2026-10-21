@@ -371,15 +371,11 @@ fn load_clut(@builtin(local_invocation_index) k: u32) {
             if (csm != 0u) {
                 clut[dst + ((csa * 16u + k) & 511u)] = read_pixel(cpsm, cbp, data[r + 7u], data[r + 8u] * 16u + k, data[r + 9u]);
             } else {
-                var x = k & 7u;
-                var y = k >> 3u;
-                var slot = ((csa & 15u) * 16u + k) & 255u;
-                if (eight) {
-                    let j = (k & ~0x18u) | ((k & 0x08u) << 1u) | ((k & 0x10u) >> 1u);
-                    x = j & 15u;
-                    y = j >> 4u;
-                    slot = k;
-                }
+                let idx = select(((csa & 15u) * 16u + k) & 255u, k, eight);
+                let j = (idx & ~0x18u) | ((idx & 0x08u) << 1u) | ((idx & 0x10u) >> 1u);
+                let x = j & 15u;
+                let y = j >> 4u;
+                let slot = idx;
                 clut[dst + slot] = read_pixel(cpsm, cbp, 1u, x, y);
             }
         }
