@@ -486,6 +486,7 @@ function pollPlayer(port, gamepad, own) {
   const rumble = Module._ps2web_rumble(port), now = performance.now();
   const strong = motorStrength(rumble >> 8), weak = rumble & 1;
   const noRumble = params.has('norumble');
+  const actuator = gamepad && gamepad.vibrationActuator;
   if (actuator && !noRumble && !player.rumbleBusy) {
     const isStopping = !strong && !weak;
     const wasRunning = player.strong > 0 || player.weak > 0;
