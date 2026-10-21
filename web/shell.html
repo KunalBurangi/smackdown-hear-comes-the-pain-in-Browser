@@ -473,12 +473,25 @@ function pollPlayer(port, gamepad, own) {
   const rumble = Module._ps2web_rumble(port), now = performance.now();
   const strong = motorStrength(rumble >> 8), weak = rumble & 1;
   const actuator = gamepad && gamepad.vibrationActuator;
-  if (actuator && (Math.abs(strong - player.strong) > 0.08 || weak !== player.weak || ((strong || weak) && now - player.rumbleAt > 100))) {
-    player.strong = strong;
-    player.weak = weak;
-    player.rumbleAt = now;
-    const done = strong || weak ? actuator.playEffect('dual-rumble', { duration: 200, weakMagnitude: weak, strongMagnitude: strong }) : actuator.reset();
-    if (done && done.catch) done.catch(() => {});
+  if (actuator && !player.rumbleBusy) {
+    const isStopping = !strong && !weak;
+    const wasRunning = player.strong > 0 || player.weak > 0;
+    const changed = Math.abs(strong - player.strong) > 0.1 || weak !== player.weak;
+    const expired = (strong || weak) && (now - player.rumbleAt > 800);
+    if ((isStopping && wasRunning) || changed || expired) {
+      player.strong = strong;
+      player.weak = weak;
+      player.rumbleAt = now;
+      player.rumbleBusy = true;
+      const promise = (strong || weak)
+        ? actuator.playEffect('dual-rumble', { duration: 1000, weakMagnitude: weak, strongMagnitude: strong })
+        : actuator.reset();
+      if (promise && promise.then) {
+        promise.then(() => { player.rumbleBusy = false; }).catch(() => { player.rumbleBusy = false; });
+      } else {
+        player.rumbleBusy = false;
+      }
+    }
   }
 }
 function pollInput() {
@@ -487,12 +500,14 @@ function pollInput() {
   pollPlayer(1, pads[1] || null, false);
   const pad = pads[0];
   const monitor = document.getElementById('controller-status');
-  if (!pad) monitor.textContent = 'Controller: not detected. Connect it and press a button once.';
-  else {
-    const raw = pad.buttons.map((button, index) => button && (button.pressed || button.value > 0.1) ? index : -1).filter((index) => index >= 0);
-    const delivered = raw.map((index) => ps2ButtonNames[padButtons.find((entry) => entry[0] === index)?.[1]] || 'unknown');
-    const axes = pad.axes.slice(0, 4).map((value) => value.toFixed(2)).join(', ');
-    monitor.textContent = `Controller: ${pad.id || 'unnamed'} (${pad.mapping || 'nonstandard mapping'})\nRaw pressed buttons: ${raw.join(', ') || 'none'}\nSent to game: ${delivered.join(', ') || 'none'}\nAxes: ${axes || 'none'}`;
+  if (monitor && monitor.offsetParent !== null) {
+    if (!pad) monitor.textContent = 'Controller: not detected. Connect it and press a button once.';
+    else {
+      const raw = pad.buttons.map((button, index) => button && (button.pressed || button.value > 0.1) ? index : -1).filter((index) => index >= 0);
+      const delivered = raw.map((index) => ps2ButtonNames[padButtons.find((entry) => entry[0] === index)?.[1]] || 'unknown');
+      const axes = pad.axes.slice(0, 4).map((value) => value.toFixed(2)).join(', ');
+      monitor.textContent = `Controller: ${pad.id || 'unnamed'} (${pad.mapping || 'nonstandard mapping'})\nRaw pressed buttons: ${raw.join(', ') || 'none'}\nSent to game: ${delivered.join(', ') || 'none'}\nAxes: ${axes || 'none'}`;
+    }
   }
 }
 
@@ -636,19 +651,8 @@ var Module = {
         statusEl.textContent = 'Game assets loaded (virtual disc), ' + gpu;
         const warmupFiles = [
           'PAC/MOVES.PAC',
-          'PAC/M.PAC',
-          'PAC/MISC.PAC',
           'PAC/SOUND.PAC',
-          'PAC/CA.PAC',
-          'PAC/GAME2D.PAC',
-          'PAC/GM.PAC',
-          'PAC/HALO.PAC',
-          'PAC/CH.PAC',
-          'PAC/CH2.PAC',
-          'PAC/BG.PAC',
-          'BGM/CHEER.AFS',
-          'BGM/PBP000.AFS',
-          'BGM/BG_ENV.AFS'
+          'PAC/M.PAC'
         ];
         for (const file of warmupFiles) {
           setTimeout(() => Module.loadDiscFile(file).catch(() => {}), 100);

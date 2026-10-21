@@ -136,7 +136,7 @@ namespace {
 
 constexpr std::size_t kChunk = 1024u << 10;
 constexpr std::uint32_t kSlots = 768;
-constexpr std::uint64_t kReadAhead = 16;
+constexpr std::uint64_t kReadAhead = 4;
 constexpr std::uint32_t kAudioFrames = 1u << 14;
 
 enum : std::uint32_t { kEmpty, kWanted, kLoading, kReady, kFailed };
@@ -377,20 +377,9 @@ void *emulate(void *data) {
     if (g_disc_size && !ps2::disc::open("disc", g_disc_size, read_disc, disc_ready)) std::fprintf(stderr, "[web] cannot read the disc image\n");
     if (g_disc_size) {
         const char *critical_files[] = {
-            "PAC/M.PAC",
             "PAC/MOVES.PAC",
-            "PAC/MISC.PAC",
             "PAC/SOUND.PAC",
-            "PAC/HALO.PAC",
-            "PAC/GAME2D.PAC",
-            "PAC/GM.PAC",
-            "PAC/CA.PAC",
-            "PAC/CH.PAC",
-            "PAC/CH2.PAC",
-            "PAC/BG.PAC",
-            "BGM/CHEER.AFS",
-            "BGM/PBP000.AFS",
-            "BGM/BG_ENV.AFS"
+            "PAC/M.PAC"
         };
         for (const char *name : critical_files) {
             if (const auto entry = ps2::disc::find(name)) {
