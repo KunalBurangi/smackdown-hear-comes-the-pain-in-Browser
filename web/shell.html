@@ -4,7 +4,19 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>WWE SmackDown! Here Comes the Pain</title>
-<script src="coi-serviceworker.js"></script>
+<script>
+if (window.crossOriginIsolated || location.hostname === '127.0.0.1' || location.hostname === 'localhost') {
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.getRegistrations().then((regs) => {
+      for (const reg of regs) reg.unregister();
+    }).catch(() => {});
+  }
+} else {
+  const s = document.createElement('script');
+  s.src = 'coi-serviceworker.js';
+  document.head.appendChild(s);
+}
+</script>
 <style>
   :root { color-scheme: dark; }
   html, body { margin: 0; height: 100%; background: #0b0b0d; color: #d8d8dc; font: 13px system-ui, sans-serif; }
@@ -398,9 +410,10 @@ let audio = null, node = null;
 async function startAudio() {
   audio = new AudioContext({ sampleRate: 48000, latencyHint: 'interactive' });
   await audio.audioWorklet.addModule(URL.createObjectURL(new Blob([workletSource], { type: 'application/javascript' })));
+  const ringBase = typeof Module._ps2web_audio_ring === 'function' ? Module._ps2web_audio_ring() : 0;
   node = new AudioWorkletNode(audio, 'ps2-output', {
     outputChannelCount: [2],
-    processorOptions: { buffer: Module.HEAPU8.buffer, base: Module._ps2web_audio_ring() },
+    processorOptions: { buffer: Module.HEAPU8.buffer, base: ringBase },
   });
   node.connect(audio.destination);
 }
@@ -808,10 +821,16 @@ if (missing.length) {
 }
 
 document.getElementById('start').addEventListener('click', async () => {
+  const startBtn = document.getElementById('start');
+  if (startBtn.disabled) return;
   document.getElementById('overlay').remove();
   canvas.focus();
   fitCanvas();
-  await startAudio();
+  try {
+    await startAudio();
+  } catch (e) {
+    console.warn('Audio startup warning:', e);
+  }
   statusEl.textContent = 'Running, ' + Module.gpuInfo;
   Module.running = true;
   Module.callMain(Module.arguments);

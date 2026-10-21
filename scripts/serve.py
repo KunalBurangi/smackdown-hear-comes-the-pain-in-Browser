@@ -36,19 +36,10 @@ TYPES = {
     '.afs': 'application/octet-stream',
 }
 
-OPEN_FDS = {}
-if DISC and DISC_FD is not None:
-    OPEN_FDS[DISC] = DISC_FD
-
 def get_fd(path):
-    fd = OPEN_FDS.get(path)
-    if fd is None:
-        try:
-            fd = os.open(path, os.O_RDONLY)
-            OPEN_FDS[path] = fd
-        except Exception:
-            return None
-    return fd
+    if path == DISC:
+        return DISC_FD
+    return None
 
 
 class Handler(http.server.BaseHTTPRequestHandler):
@@ -121,31 +112,34 @@ class Handler(http.server.BaseHTTPRequestHandler):
             self.send_response(200)
         self.headers_for(path, end - start + 1)
 
-        fd = get_fd(path)
-        if fd is not None:
-            left = end - start + 1
-            pos = start
-            while left > 0:
-                chunk_len = min(left, 1 << 20)
-                chunk = os.pread(fd, chunk_len, pos)
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                pos += len(chunk)
-                left -= len(chunk)
-            self.wfile.flush()
-            return
+        try:
+            fd = get_fd(path)
+            if fd is not None:
+                left = end - start + 1
+                pos = start
+                while left > 0:
+                    chunk_len = min(left, 1 << 20)
+                    chunk = os.pread(fd, chunk_len, pos)
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    pos += len(chunk)
+                    left -= len(chunk)
+                self.wfile.flush()
+                return
 
-        with open(path, 'rb') as f:
-            f.seek(start)
-            left = end - start + 1
-            while left > 0:
-                chunk = f.read(min(left, 1 << 20))
-                if not chunk:
-                    break
-                self.wfile.write(chunk)
-                left -= len(chunk)
-            self.wfile.flush()
+            with open(path, 'rb') as f:
+                f.seek(start)
+                left = end - start + 1
+                while left > 0:
+                    chunk = f.read(min(left, 1 << 20))
+                    if not chunk:
+                        break
+                    self.wfile.write(chunk)
+                    left -= len(chunk)
+                self.wfile.flush()
+        except (BrokenPipeError, ConnectionResetError):
+            pass
 
     def do_PUT(self):
         match = re.match(r'^/vu1/([0-9A-F]{16}_[0-9A-F]{4}\.bin)$', self.path.split('?', 1)[0])

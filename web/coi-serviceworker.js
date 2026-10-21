@@ -37,12 +37,19 @@ if (typeof window === 'undefined') {
                     if (response.status === 0) {
                         return response;
                     }
+                    if (response.headers.has("Cross-Origin-Opener-Policy") && response.headers.has("Cross-Origin-Embedder-Policy")) {
+                        return response;
+                    }
 
                     const newHeaders = new Headers(response.headers);
                     newHeaders.set("Cross-Origin-Embedder-Policy",
                         coepCredentialless ? "credentialless" : "require-corp"
                     );
                     newHeaders.set("Cross-Origin-Opener-Policy", "same-origin");
+                    if (newHeaders.has("Content-Encoding")) {
+                        newHeaders.delete("Content-Encoding");
+                        newHeaders.delete("Content-Length");
+                    }
 
                     return new Response(response.body, {
                         status: response.status,
@@ -61,11 +68,21 @@ if (typeof window === 'undefined') {
         const currentScript = document.currentScript;
         const coi = {
             shouldRegister: () => !window.crossOriginIsolated,
-            shouldDeregister: () => false,
+            shouldDeregister: () => window.crossOriginIsolated,
             doReload: () => window.location.reload(),
             quiet: false,
             ...window.coi
         };
+
+        if (navigator.serviceWorker && coi.shouldDeregister()) {
+            navigator.serviceWorker.getRegistrations().then((regs) => {
+                for (const reg of regs) {
+                    if (reg.active && reg.active.scriptURL.includes("coi-serviceworker")) {
+                        reg.unregister();
+                    }
+                }
+            }).catch(() => {});
+        }
 
         if (navigator.serviceWorker && coi.shouldRegister()) {
             navigator.serviceWorker.register(currentScript.src).then(
