@@ -347,9 +347,12 @@ void pace() {
     ps2::post_present();
     if (g_audio.active.load()) {
         const double queued = audio_queued_ms();
-        if (queued > 120.0) {
-            const double excess = queued - 120.0;
-            const useconds_t sleep_us = static_cast<useconds_t>(std::min(excess, 6.0) * 1000.0);
+        if (queued > 100.0) {
+            const std::uint32_t write = g_audio.write.load(std::memory_order_relaxed);
+            g_audio.read.store(write - static_cast<std::uint32_t>(50.0 * 48.0), std::memory_order_release);
+        } else if (queued > 70.0) {
+            const double excess = queued - 70.0;
+            const useconds_t sleep_us = static_cast<useconds_t>(std::min(excess, 2.0) * 1000.0);
             if (sleep_us > 0) usleep(sleep_us);
         }
         g_next_frame = 0.0;
