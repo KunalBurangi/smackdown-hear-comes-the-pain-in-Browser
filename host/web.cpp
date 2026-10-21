@@ -384,6 +384,9 @@ void *emulate(void *data) {
             "PAC/SOUND.PAC",
             "PAC/M.PAC",
             "PAC/MISC.PAC",
+            "PAC/GAME2D.PAC",
+            "PAC/CA.PAC",
+            "PAC/GM.PAC",
             "BGM/PBP000.AFS",
             "BGM/CHEER.AFS"
         };
