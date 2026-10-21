@@ -322,7 +322,7 @@ void load_clut(int context, std::uint64_t tex0) {
 #ifdef PS2_GPU
     if (gpu_on()) {
         const int ctx_idx = context & 1;
-        if (tex0 != g_last_clut_tex0[ctx_idx] || g_state.texclut != g_last_clut_texclut[ctx_idx]) {
+        if (cld == 1 || tex0 != g_last_clut_tex0[ctx_idx] || g_state.texclut != g_last_clut_texclut[ctx_idx]) {
             g_last_clut_tex0[ctx_idx] = tex0;
             g_last_clut_texclut[ctx_idx] = g_state.texclut;
             gpu::load_clut(ctx_idx, tex0, g_state.texclut);
@@ -331,7 +331,7 @@ void load_clut(int context, std::uint64_t tex0) {
 #endif
     if (!cpu_raster()) return;
     const bool eight = psm == PSMT8 || psm == PSMT8H;
-    const std::uint32_t entries = eight ? 256u : 16u;
+    const std::uint32_t entries = (csm == 0 || eight) ? 256u : 16u;
     const std::uint32_t texclut = static_cast<std::uint32_t>(g_state.texclut);
     for (std::uint32_t i = 0; i < entries; ++i) {
         std::uint32_t x, y;
@@ -344,7 +344,7 @@ void load_clut(int context, std::uint64_t tex0) {
             g_state.clut[slot] = c;
             continue;
         }
-        const std::uint32_t idx = eight ? i : (((csa & 15u) * 16u + i) & 255u);
+        const std::uint32_t idx = i;
         const std::uint32_t j = (idx & ~0x18u) | ((idx & 0x08u) << 1) | ((idx & 0x10u) >> 1);
         x = j & 15u;
         y = j >> 4;

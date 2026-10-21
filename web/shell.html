@@ -661,31 +661,35 @@ var Module = {
       chooseGpu().catch((e) => 'GPU check failed: ' + e)
     ]).then(([sectors, meta, r, gpu]) => {
       const hasIso = r && Number(r.headers.get('content-length')) > 100000000;
-      if (hasIso && !params.has('virtual')) {
-        Module.discSize = Number(r.headers.get('content-length'));
-        statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
-      } else if (sectors && meta) {
+      if (sectors && meta) {
         Module.discIndex = sectors;
         Module.discMeta = new Uint8Array(meta);
+      }
+      if (hasIso && !params.has('virtual')) {
+        Module.discSize = Number(r.headers.get('content-length'));
+        Module.hasIso = true;
+        statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
+      } else if (sectors && meta) {
         Module.discSize = 4525228032;
         statusEl.textContent = 'Game assets loaded (virtual disc), ' + gpu;
-        const warmupFiles = [
-          'PAC/MOVES.PAC',
-          'PAC/SOUND.PAC',
-          'PAC/M.PAC',
-          'PAC/MISC.PAC',
-          'PAC/GAME2D.PAC',
-          'PAC/CA.PAC',
-          'PAC/GM.PAC',
-          'BGM/PBP000.AFS',
-          'BGM/CHEER.AFS'
-        ];
-        for (const file of warmupFiles) {
-          setTimeout(() => Module.loadDiscFile(file).catch(() => {}), 100);
-        }
       } else {
         Module.discSize = r ? (Number(r.headers.get('content-length')) || 0) : 0;
         statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;
+      }
+      const warmupFiles = [
+        'PAC/GAME2D.PAC',
+        'PAC/CA.PAC',
+        'PAC/GM.PAC',
+        'PAC/MOVES.PAC',
+        'PAC/SOUND.PAC',
+        'PAC/EVTENT.PAC',
+        'PAC/EVTDORA.PAC',
+        'BGM/CHEER.AFS'
+      ];
+      let delay = 100;
+      for (const file of warmupFiles) {
+        setTimeout(() => Module.loadDiscFile(file).catch(() => {}), delay);
+        delay += 500;
       }
       Module.gpuInfo = gpu;
       if (Module.gpuHelp && !missing.length) {
@@ -725,52 +729,80 @@ var Module = {
     return p;
   },
   fetchDiscChunk: (url, offset, size, out, finish) => {
+    const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
     if (Module.discIndex) {
-      const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
-      getHeap().fill(0, out, out + size);
       const end = offset + size;
       const metaSize = Module.discMeta ? Module.discMeta.length : 0;
       if (offset < metaSize) {
         const metaEnd = Math.min(end, metaSize);
         getHeap().set(Module.discMeta.subarray(offset, metaEnd), out);
       }
-      const promises = [];
+      let allCached = true;
+      let count = 0;
       for (const s of Module.discIndex) {
-        if (s.start < end && s.end > offset) {
-          if (!s.available) continue;
-          const overlapStart = Math.max(offset, s.start);
-          const overlapEnd = Math.min(end, s.end);
-          const relStart = overlapStart - s.start;
-          const relEnd = overlapEnd - s.start;
-          const dstOffset = overlapStart - offset;
-          const fileSize = s.file_size || s.size;
-          if (relStart >= fileSize) continue;
-          const actualRelEnd = Math.min(relEnd, fileSize);
-          if (Module.discFileCache && Module.discFileCache.has(s.path)) {
-            const bytes = Module.discFileCache.get(s.path);
-            getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
-          } else {
-            promises.push(
-              Module.loadDiscFile(s.path).then((bytes) => {
-                getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
-              })
-            );
+        if (s.start < end && s.end > offset && s.available) {
+          ++count;
+          if (!Module.discFileCache || !Module.discFileCache.has(s.path)) {
+            allCached = false;
+            break;
           }
         }
       }
-      if (promises.length === 0) {
+      if (count > 0 && allCached) {
+        getHeap().fill(0, out, out + size);
+        for (const s of Module.discIndex) {
+          if (s.start < end && s.end > offset && s.available) {
+            const overlapStart = Math.max(offset, s.start);
+            const overlapEnd = Math.min(end, s.end);
+            const relStart = overlapStart - s.start;
+            const dstOffset = overlapStart - offset;
+            const fileSize = s.file_size || s.size;
+            if (relStart >= fileSize) continue;
+            const actualRelEnd = Math.min(overlapEnd - s.start, fileSize);
+            const bytes = Module.discFileCache.get(s.path);
+            getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
+          }
+        }
         finish(3);
         return;
       }
-      Promise.all(promises)
-        .then(() => finish(3))
-        .catch((e) => {
-          console.error('[disc] read failed in chunk ' + offset, e);
-          finish(4);
-        });
-      return;
+      if (!Module.hasIso) {
+        getHeap().fill(0, out, out + size);
+        const promises = [];
+        for (const s of Module.discIndex) {
+          if (s.start < end && s.end > offset && s.available) {
+            const overlapStart = Math.max(offset, s.start);
+            const overlapEnd = Math.min(end, s.end);
+            const relStart = overlapStart - s.start;
+            const dstOffset = overlapStart - offset;
+            const fileSize = s.file_size || s.size;
+            if (relStart >= fileSize) continue;
+            const actualRelEnd = Math.min(overlapEnd - s.start, fileSize);
+            if (Module.discFileCache && Module.discFileCache.has(s.path)) {
+              const bytes = Module.discFileCache.get(s.path);
+              getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
+            } else {
+              promises.push(
+                Module.loadDiscFile(s.path).then((bytes) => {
+                  getHeap().set(bytes.subarray(relStart, Math.min(bytes.length, actualRelEnd)), out + dstOffset);
+                })
+              );
+            }
+          }
+        }
+        if (promises.length === 0) {
+          finish(3);
+          return;
+        }
+        Promise.all(promises)
+          .then(() => finish(3))
+          .catch((e) => {
+            console.error('[disc] read failed in chunk ' + offset, e);
+            finish(4);
+          });
+        return;
+      }
     }
-    const getHeap = () => (typeof HEAPU8 !== 'undefined' && HEAPU8.buffer.byteLength > 0 ? HEAPU8 : Module.HEAPU8);
     fetch(url, { headers: { Range: 'bytes=' + offset + '-' + (offset + size - 1) } })
       .then((res) => {
         if (res.status !== 206 && res.status !== 200) throw new Error('status ' + res.status);

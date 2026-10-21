@@ -363,20 +363,19 @@ fn load_clut(@builtin(local_invocation_index) k: u32) {
         let csm = data[r + 4u];
         let csa = data[r + 5u];
         let eight = data[r + 6u] != 0u;
-        var entries = 16u;
-        if (eight) {
-            entries = 256u;
-        }
-        if (k < entries) {
-            if (csm != 0u) {
+        if (csm == 0u) {
+            let idx = k;
+            let j = (idx & ~0x18u) | ((idx & 0x08u) << 1u) | ((idx & 0x10u) >> 1u);
+            let x = j & 15u;
+            let y = j >> 4u;
+            clut[dst + idx] = read_pixel(cpsm, cbp, 1u, x, y);
+        } else {
+            var entries = 16u;
+            if (eight) {
+                entries = 256u;
+            }
+            if (k < entries) {
                 clut[dst + ((csa * 16u + k) & 511u)] = read_pixel(cpsm, cbp, data[r + 7u], data[r + 8u] * 16u + k, data[r + 9u]);
-            } else {
-                let idx = select(((csa & 15u) * 16u + k) & 255u, k, eight);
-                let j = (idx & ~0x18u) | ((idx & 0x08u) << 1u) | ((idx & 0x10u) >> 1u);
-                let x = j & 15u;
-                let y = j >> 4u;
-                let slot = idx;
-                clut[dst + slot] = read_pixel(cpsm, cbp, 1u, x, y);
             }
         }
         storageBarrier();

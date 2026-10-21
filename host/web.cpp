@@ -380,20 +380,19 @@ void *emulate(void *data) {
     if (g_disc_size && !ps2::disc::open("disc", g_disc_size, read_disc, disc_ready)) std::fprintf(stderr, "[web] cannot read the disc image\n");
     if (g_disc_size) {
         const char *critical_files[] = {
-            "PAC/MOVES.PAC",
-            "PAC/SOUND.PAC",
-            "PAC/M.PAC",
-            "PAC/MISC.PAC",
             "PAC/GAME2D.PAC",
             "PAC/CA.PAC",
             "PAC/GM.PAC",
-            "BGM/PBP000.AFS",
+            "PAC/MOVES.PAC",
+            "PAC/SOUND.PAC",
+            "PAC/EVTENT.PAC",
+            "PAC/EVTDORA.PAC",
             "BGM/CHEER.AFS"
         };
         for (const char *name : critical_files) {
             if (const auto entry = ps2::disc::find(name)) {
                 const std::uint32_t sectors = (entry->size + ps2::disc::kSector - 1) / ps2::disc::kSector;
-                ps2::disc::ready(entry->sector, sectors);
+                ps2::disc::ready(entry->sector, std::min<std::uint32_t>(sectors, 4096));
             }
         }
     }
