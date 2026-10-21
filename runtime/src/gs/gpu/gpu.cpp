@@ -1004,7 +1004,7 @@ std::uint32_t make_setup(const State &st, std::uint64_t attr, std::uint32_t *w) 
     w[13] = static_cast<std::uint32_t>(c.tex0 >> 14) & 0x3Fu;
     w[14] = static_cast<std::uint32_t>(c.tex0 >> 20) & 0x3Fu;
     w[15] = std::min<std::uint32_t>(static_cast<std::uint32_t>(c.tex0 >> 26) & 0xFu, 10u) | (std::min<std::uint32_t>(static_cast<std::uint32_t>(c.tex0 >> 30) & 0xFu, 10u) << 8);
-    w[16] = static_cast<std::uint32_t>(c.tex0 >> 51) & 0xFu;
+    w[16] = (static_cast<std::uint32_t>(c.tex0 >> 51) & 0xFu) | ((static_cast<std::uint32_t>(c.tex0 >> 55) & 1u) << 4);
     w[17] = static_cast<std::uint32_t>(c.tex0 >> 56) & 0x1Fu;
     w[18] = (static_cast<std::uint32_t>(c.clamp >> 4) & 0x3FFu) | ((static_cast<std::uint32_t>(c.clamp >> 14) & 0x3FFu) << 16);
     w[19] = (static_cast<std::uint32_t>(c.clamp >> 24) & 0x3FFu) | ((static_cast<std::uint32_t>(c.clamp >> 34) & 0x3FFu) << 16);

@@ -634,6 +634,25 @@ var Module = {
         Module.discMeta = new Uint8Array(meta);
         Module.discSize = 4525228032;
         statusEl.textContent = 'Game assets loaded (virtual disc), ' + gpu;
+        const warmupFiles = [
+          'PAC/MOVES.PAC',
+          'PAC/M.PAC',
+          'PAC/MISC.PAC',
+          'PAC/SOUND.PAC',
+          'PAC/CA.PAC',
+          'PAC/GAME2D.PAC',
+          'PAC/GM.PAC',
+          'PAC/HALO.PAC',
+          'PAC/CH.PAC',
+          'PAC/CH2.PAC',
+          'PAC/BG.PAC',
+          'BGM/CHEER.AFS',
+          'BGM/PBP000.AFS',
+          'BGM/BG_ENV.AFS'
+        ];
+        for (const file of warmupFiles) {
+          setTimeout(() => Module.loadDiscFile(file).catch(() => {}), 100);
+        }
       } else {
         Module.discSize = r ? (Number(r.headers.get('content-length')) || 0) : 0;
         statusEl.textContent = (Module.discSize ? 'Disc ' + (Module.discSize / 1073741824).toFixed(2) + ' GB' : 'No disc image at ' + Module.discUrl) + ', ' + gpu;

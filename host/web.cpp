@@ -346,7 +346,12 @@ std::atomic<double> g_emulation_idle{0.0}, g_render_idle{0.0};
 void pace() {
     ps2::post_present();
     if (g_audio.active.load()) {
-        while (audio_queued_ms() > 80.0) usleep(1000);
+        const double queued = audio_queued_ms();
+        if (queued > 120.0) {
+            const double excess = queued - 120.0;
+            const useconds_t sleep_us = static_cast<useconds_t>(std::min(excess, 6.0) * 1000.0);
+            if (sleep_us > 0) usleep(sleep_us);
+        }
         g_next_frame = 0.0;
         return;
     }
@@ -378,7 +383,14 @@ void *emulate(void *data) {
             "PAC/SOUND.PAC",
             "PAC/HALO.PAC",
             "PAC/GAME2D.PAC",
-            "PAC/GM.PAC"
+            "PAC/GM.PAC",
+            "PAC/CA.PAC",
+            "PAC/CH.PAC",
+            "PAC/CH2.PAC",
+            "PAC/BG.PAC",
+            "BGM/CHEER.AFS",
+            "BGM/PBP000.AFS",
+            "BGM/BG_ENV.AFS"
         };
         for (const char *name : critical_files) {
             if (const auto entry = ps2::disc::find(name)) {
