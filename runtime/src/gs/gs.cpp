@@ -231,7 +231,7 @@ void exact_download() {
 #ifdef PS2_GPU
     if (!g_transfer_stale) return;
     g_transfer_stale = false;
-    if (!gpu::finish_download(g_transfer_serial)) gpu::download(g_memory, g_stale_first, g_stale_bytes);
+    gpu::collect_download();
 #endif
 }
 
@@ -734,7 +734,12 @@ void read_image(std::uint8_t *data, std::uint32_t qwords) {
     const std::size_t bytes = static_cast<std::size_t>(qwords) * 16;
     {
         std::lock_guard lock(g_cache_mutex);
-        const auto it = std::find_if(g_download_cache.begin(), g_download_cache.end(), [&](const CachedDownload &c) { return c.key == key; });
+        auto it = std::find_if(g_download_cache.begin(), g_download_cache.end(), [&](const CachedDownload &c) { return c.key == key; });
+        if (it == g_download_cache.end()) {
+            it = std::find_if(g_download_cache.begin(), g_download_cache.end(), [&](const CachedDownload &c) {
+                return (c.key.buf & 0x3FFFu) == (key.buf & 0x3FFFu) && c.key.offset == key.offset && c.key.qwords == key.qwords;
+            });
+        }
         if (it != g_download_cache.end() && it->data.size() == bytes) {
             std::memcpy(data, it->data.data(), bytes);
             it->used = ++g_cache_clock;

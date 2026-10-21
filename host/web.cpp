@@ -345,24 +345,29 @@ std::atomic<double> g_emulation_idle{0.0}, g_render_idle{0.0};
 
 void pace() {
     ps2::post_present();
+    const double period = ps2::g_options.pal ? 20.0 : 1000.0 / 59.94;
+    const double now = emscripten_get_now();
+    if (g_next_frame == 0.0 || now - g_next_frame > 100.0 || g_next_frame - now > 100.0) {
+        g_next_frame = now;
+    }
+    g_next_frame += period;
+
     if (g_audio.active.load()) {
         const double queued = audio_queued_ms();
         if (queued > 100.0) {
             const std::uint32_t write = g_audio.write.load(std::memory_order_relaxed);
             g_audio.read.store(write - static_cast<std::uint32_t>(50.0 * 48.0), std::memory_order_release);
         } else if (queued > 70.0) {
-            const double excess = queued - 70.0;
-            const useconds_t sleep_us = static_cast<useconds_t>(std::min(excess, 2.0) * 1000.0);
-            if (sleep_us > 0) usleep(sleep_us);
+            g_next_frame += 0.5;
+        } else if (queued < 30.0 && queued > 0.0) {
+            g_next_frame -= 0.5;
         }
-        g_next_frame = 0.0;
-        return;
     }
-    const double period = ps2::g_options.pal ? 20.0 : 1000.0 / 59.94;
-    const double now = emscripten_get_now();
-    if (g_next_frame == 0.0 || now - g_next_frame > 200.0) g_next_frame = now;
-    g_next_frame += period;
-    if (g_next_frame > now) usleep(static_cast<useconds_t>((g_next_frame - now) * 1000.0));
+
+    if (g_next_frame > now) {
+        const double wait_ms = g_next_frame - now;
+        usleep(static_cast<useconds_t>(wait_ms * 1000.0));
+    }
 }
 
 void on_vblank() {
@@ -388,6 +393,7 @@ void *emulate(void *data) {
             "PAC/SOUND.PAC",
             "PAC/EVTENT.PAC",
             "PAC/EVTDORA.PAC",
+            "BGM/PBP000.AFS",
             "BGM/CHEER.AFS"
         };
         for (const char *name : critical_files) {
@@ -544,25 +550,13 @@ int main(int argc, char **argv) {
     };
     const std::function<void(const std::uint32_t *, std::uint32_t, std::uint32_t)> none;
     const std::function<void()> wait_shown = [] {
-        static int since_skip = 0;
-        static double window_start = 0.0, window_gpu = 0.0, gpu_load = 1.0;
         const double start = emscripten_get_now();
-        if (start - window_start > 500.0) {
-            const double gpu = ps2::gpu_busy_ms();
-            gpu_load = window_start > 0.0 ? (gpu - window_gpu) / (start - window_start) : 1.0;
-            window_start = start;
-            window_gpu = gpu;
-        }
-        if (++since_skip > 8 && gpu_load < 0.8 && g_audio.active.load() && audio_queued_ms() < 40.0) {
-            since_skip = 0;
-            return;
-        }
         ps2web_wait_shown();
         g_render_idle.store(g_render_idle.load() + emscripten_get_now() - start);
     };
     for (;;) {
         service_disc();
-        const ps2::Rendered rendered = ps2::render_pending(surface, copy ? blit : none, wait_shown, 6.0);
+        const ps2::Rendered rendered = ps2::render_pending(surface, copy ? blit : none, wait_shown, 16.0);
         if (rendered == ps2::Rendered::presented) ps2web_frame_done();
         if (rendered != ps2::Rendered::idle) {
             ps2::browser_yield();

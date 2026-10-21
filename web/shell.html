@@ -682,7 +682,8 @@ const MATCH_PRELOAD_FILES = [
   { path: 'PAC/GM.PAC', label: 'Match Engine', size: 3444736 },
   { path: 'PAC/MISC.PAC', label: 'Character Physics & Ringside', size: 18104320 },
   { path: 'PAC/MOVES.PAC', label: 'Smack & Attack Moves', size: 14786560 },
-  { path: 'PAC/SOUND.PAC', label: 'Impact Audio & Commentary', size: 9078784 },
+  { path: 'PAC/SOUND.PAC', label: 'Impact Audio & Sounds', size: 9078784 },
+  { path: 'BGM/PBP000.AFS', label: 'Play-by-Play Smack Commentary', size: 2414592 },
   { path: 'PAC/EVTENT.PAC', label: 'Victory & Outro Cutscenes', size: 18462720 },
   { path: 'PAC/EVTDORA.PAC', label: 'Cutscene Cameras', size: 5347328 },
   { path: 'BGM/CHEER.AFS', label: 'Crowd Audio Reactions', size: 17442816 }
@@ -713,7 +714,7 @@ function updatePreloadUI(currentLabel) {
       badge.style.background = '#14532d';
       badge.style.color = '#86efac';
     }
-    if (detail) detail.textContent = 'All 9 packages (88 MB) cached in local memory (0ms latency).';
+    if (detail) detail.textContent = 'All 10 packages (90 MB) cached in local memory (0ms latency).';
     if (btn) {
       btn.textContent = 'Match Assets: 100% Ready';
       btn.style.color = '#86efac';
