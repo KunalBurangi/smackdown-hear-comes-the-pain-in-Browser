@@ -472,8 +472,8 @@ function pollPlayer(port, gamepad, own) {
   }
   const rumble = Module._ps2web_rumble(port), now = performance.now();
   const strong = motorStrength(rumble >> 8), weak = rumble & 1;
-  const actuator = gamepad && gamepad.vibrationActuator;
-  if (actuator && !player.rumbleBusy) {
+  const noRumble = params.has('norumble');
+  if (actuator && !noRumble && !player.rumbleBusy) {
     const isStopping = !strong && !weak;
     const wasRunning = player.strong > 0 || player.weak > 0;
     const changed = Math.abs(strong - player.strong) > 0.1 || weak !== player.weak;
@@ -483,14 +483,20 @@ function pollPlayer(port, gamepad, own) {
       player.weak = weak;
       player.rumbleAt = now;
       player.rumbleBusy = true;
-      const promise = (strong || weak)
-        ? actuator.playEffect('dual-rumble', { duration: 1000, weakMagnitude: weak, strongMagnitude: strong })
-        : actuator.reset();
-      if (promise && promise.then) {
-        promise.then(() => { player.rumbleBusy = false; }).catch(() => { player.rumbleBusy = false; });
-      } else {
-        player.rumbleBusy = false;
-      }
+      setTimeout(() => {
+        try {
+          const promise = (strong || weak)
+            ? actuator.playEffect('dual-rumble', { duration: 1000, weakMagnitude: weak, strongMagnitude: strong })
+            : actuator.reset();
+          if (promise && promise.then) {
+            promise.then(() => { player.rumbleBusy = false; }).catch(() => { player.rumbleBusy = false; });
+          } else {
+            player.rumbleBusy = false;
+          }
+        } catch (e) {
+          player.rumbleBusy = false;
+        }
+      }, 0);
     }
   }
 }
@@ -652,7 +658,10 @@ var Module = {
         const warmupFiles = [
           'PAC/MOVES.PAC',
           'PAC/SOUND.PAC',
-          'PAC/M.PAC'
+          'PAC/M.PAC',
+          'PAC/MISC.PAC',
+          'BGM/PBP000.AFS',
+          'BGM/CHEER.AFS'
         ];
         for (const file of warmupFiles) {
           setTimeout(() => Module.loadDiscFile(file).catch(() => {}), 100);
